@@ -9,7 +9,7 @@ type BlockHeader struct {
 	Id Hash
 	Height uint64
 	PreviousId Hash
-	Proposer string
+	Proposer Validator
 	Timestamp time.Time
 }
 
