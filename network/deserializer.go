@@ -3,8 +3,6 @@ package network
 import (
 	"reflect"
 	"fmt"
-	"bufio"
-	"io"
 	"encoding/binary"
 	deserializer "github.com/anhnguyentrung/binaryserializer"
 	nwtypes "bft/network/types"
@@ -62,26 +60,26 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 	return d.Deserialize(v)
 }
 
-func UnmarshalBinaryMessage(reader *bufio.Reader, message *nwtypes.Message) error {
-	typeBuf := make([]byte, 1, 1)
-	_, err := io.ReadFull(reader, typeBuf)
-	if err != nil {
-		return err
+func UnmarshalBinaryMessage(buf []byte, message *nwtypes.Message) error {
+	pos := 0
+	if len(buf) < 1 {
+		return fmt.Errorf("can't read message type")
 	}
+	typeBuf := buf[pos:1]
+	pos += 1
 	messageType := nwtypes.MessageType(typeBuf[0])
-	lenBuf := make([]byte, 4, 4)
-	_, err = io.ReadFull(reader, lenBuf)
-	if err != nil {
-		return err
+	if len(buf) < pos + 4 {
+		return fmt.Errorf("can't read message length")
 	}
+	lenBuf := buf[pos:pos+4]
+	pos += 4
 	length := binary.BigEndian.Uint32(lenBuf)
-	messageData := make([]byte, length, length)
-	n, err := io.ReadFull(reader, messageData)
-	if uint32(n) != length {
-		return fmt.Errorf("wrong length")
+	if len(buf) < pos + int(length) {
+		return fmt.Errorf("can't read message data")
 	}
+	payload := buf[pos:pos + int(length)]
 	message.Header.Type = messageType
 	message.Header.Length = length
-	message.Payload = messageData
+	message.Payload = payload
 	return nil
 }
