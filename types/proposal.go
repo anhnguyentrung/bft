@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"time"
+	"bft/crypto"
+)
 
 type View struct {
 	Round uint64
@@ -11,5 +14,5 @@ type PrePrepare struct {
 	View View
 	ProposalBlock Block
 	Timestamp time.Time
-	Signature []byte
+	Signature crypto.Signature
 }

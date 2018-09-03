@@ -1,6 +1,9 @@
 package types
 
-import "time"
+import (
+	"time"
+	"bft/crypto"
+)
 
 type BlockHeader struct {
 	Id Hash
@@ -12,4 +15,9 @@ type BlockHeader struct {
 
 type Block struct {
 	Header BlockHeader
+}
+
+type SignedBlock struct {
+	Block Block
+	Signature crypto.Signature
 }
