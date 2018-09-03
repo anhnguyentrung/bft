@@ -6,13 +6,13 @@ import (
 )
 
 type View struct {
-	Round uint64
-	Height uint64
+	Round 		uint64
+	HeightId 	BlockHeightId
 }
 
 type PrePrepare struct {
-	View View
-	ProposalBlock Block
-	Timestamp time.Time
-	Signature crypto.Signature
+	View 			View
+	ProposalBlock 	Block
+	Timestamp 		time.Time
+	Signature 		crypto.Signature
 }

@@ -3,11 +3,23 @@ package types
 import (
 	"time"
 	"bft/crypto"
+	"strconv"
+	"encoding/hex"
 )
 
-type BlockHeader struct {
-	Id Hash
+type BlockHeightId struct {
 	Height uint64
+	Id Hash
+}
+
+func (blockHeightId *BlockHeightId) String() string {
+	h := strconv.FormatUint(blockHeightId.Height, 10)
+	id := hex.EncodeToString(blockHeightId.Id[:])
+	return h + id
+}
+
+type BlockHeader struct {
+	HeightId BlockHeightId
 	PreviousId Hash
 	Proposer Validator
 	Timestamp time.Time

@@ -14,10 +14,13 @@ const (
 )
 
 type Vote struct {
-	Voter 			Validator
-	Type 			VoteType
-	View 			View
-	ProposalBlockId Hash
-	Timestamp 		time.Time
-	Signature 		crypto.PublicKey
+	Voter 		Validator
+	Type 		VoteType
+	View 		View
+	BlockId 	Hash
+	Timestamp 	time.Time
+	Signature 	crypto.PublicKey
 }
+
+type Votes = []Vote
+type BlockVotes = map[string]Votes // string: block's height + block's id
