@@ -53,33 +53,6 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 	return netManager
 }
 
-func loadIdentity(fileName string) (crypto.PrivKey, error) {
-	f, err := os.Open(fileName)
-	if err != nil {
-		return generateNewIdentity(fileName)
-	}
-	defer f.Close()
-	buf, _ := ioutil.ReadAll(f)
-	return crypto.UnmarshalPrivateKey(buf)
-}
-
-func generateNewIdentity(fileName string) (crypto.PrivKey, error) {
-	r := rand.Reader
-	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
-	if err != nil {
-		return nil, err
-	}
-	buf, err := crypto.MarshalPrivateKey(priv)
-	if err != nil {
-		return nil, err
-	}
-	err = ioutil.WriteFile(fileName, buf, 0644)
-	if err != nil {
-		return nil, err
-	}
-	return priv, nil
-}
-
 func (nm *NetManager) Run() {
 	nm.listen()
 	nm.addPeers(nm.targets)
@@ -152,4 +125,31 @@ func (nm *NetManager) addPeer(peerAddress string) {
 		log.Fatal(err)
 	}
 	nm.handleStream(stream)
+}
+
+func loadIdentity(fileName string) (crypto.PrivKey, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return generateNewIdentity(fileName)
+	}
+	defer f.Close()
+	buf, _ := ioutil.ReadAll(f)
+	return crypto.UnmarshalPrivateKey(buf)
+}
+
+func generateNewIdentity(fileName string) (crypto.PrivKey, error) {
+	r := rand.Reader
+	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
+	if err != nil {
+		return nil, err
+	}
+	buf, err := crypto.MarshalPrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+	err = ioutil.WriteFile(fileName, buf, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return priv, nil
 }
