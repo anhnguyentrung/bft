@@ -2,8 +2,9 @@ package types
 
 type MessageType uint8
 const (
-	Handshake MessageType = iota
-	Vote
+	HandshakeMessage MessageType = iota
+	ProposalMessage
+	VoteMessage
 )
 
 type MessageHeader struct {

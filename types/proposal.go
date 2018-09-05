@@ -10,7 +10,7 @@ type View struct {
 	HeightId 	BlockHeightId
 }
 
-type PrePrepare struct {
+type Proposal struct {
 	View 			View
 	ProposalBlock 	Block
 	Timestamp 		time.Time

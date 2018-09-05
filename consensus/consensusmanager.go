@@ -3,6 +3,7 @@ package consensus
 import (
 	"bft/types"
 	"sync"
+	"log"
 )
 
 type ConsensusStateType uint8
@@ -26,6 +27,8 @@ type ConsensusState struct {
 func NewConsensusState() *ConsensusState {
 	cs := &ConsensusState{}
 	cs.state = NewRound
+	cs.view.Round = 1
+	cs.view.HeightId.Height = 1
 	cs.voteStorage = make(map[ConsensusStateType]types.BlockVotes, 0)
 	states := []ConsensusStateType{NewRound, PrePrepared, Prepared, Committed, FinalCommitted, RoundChange}
 	for _, state := range states {
@@ -77,7 +80,49 @@ func (cm *ConsensusManager) SetValidators(validators []types.Validator) {
 	cm.validators = validators
 }
 
-func (cm *ConsensusManager) Receive(vote types.Vote) {
-	vote := types.Vote{}
-	err = Unmark([]byte(str), &message)
+func (cm *ConsensusManager) Receive(message types.Message, decoder types.DeserializeFunc) {
+	messageType := message.Header.Type
+	switch messageType {
+	case types.VoteMessage:
+		vote := types.Vote{}
+		err := decoder(message.Payload, &vote)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cm.onVote(vote)
+	case types.ProposalMessage:
+		proposal := types.Proposal{}
+		err := decoder(message.Payload, &proposal)
+		if err != nil {
+			log.Fatal(err)
+		}
+		cm.onProposal(proposal)
+	}
+}
+
+func (cm *ConsensusManager) onVote(vote types.Vote) {
+	switch vote.Type {
+	case types.Prepare:
+		cm.onPrepare(vote)
+	case types.Commit:
+		cm.onCommit(vote)
+	case types.RoundChange:
+		cm.onRoundChange(vote)
+	}
+}
+
+func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
+
+}
+
+func (cm *ConsensusManager) onPrepare(vote types.Vote) {
+
+}
+
+func (cm *ConsensusManager) onCommit(vote types.Vote) {
+
+}
+
+func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
+
 }

@@ -6,14 +6,13 @@ import (
 	"reflect"
 	"bft/types"
 	"bft/crypto"
-	nwtypes "bft/network/types"
 )
 
 func MarshalBinary(v interface{}) ([]byte, error) {
 	s := serializer.NewSerializer()
 	extension := func(v interface{}) error {
 		switch t := v.(type) {
-		case nwtypes.MessageType:
+		case types.MessageType:
 			return s.WriteBytes([]byte{byte(t)})
 		case types.Hash:
 			return s.WriteBytes(t[:])

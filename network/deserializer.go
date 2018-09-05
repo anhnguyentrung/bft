@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"encoding/binary"
 	deserializer "github.com/anhnguyentrung/binaryserializer"
-	nwtypes "bft/network/types"
 	"bft/types"
 	"bft/crypto"
 )
@@ -19,7 +18,7 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 	extension := func(v interface{}) error {
 		rv := reflect.Indirect(reflect.ValueOf(v))
 		switch v.(type) {
-		case *nwtypes.MessageType:
+		case *types.MessageType:
 			bytes, err := d.ReadBytes(1)
 			if err != nil {
 				return err
@@ -60,14 +59,14 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 	return d.Deserialize(v)
 }
 
-func UnmarshalBinaryMessage(buf []byte, message *nwtypes.Message) error {
+func UnmarshalBinaryMessage(buf []byte, message *types.Message) error {
 	pos := 0
 	if len(buf) < 1 {
 		return fmt.Errorf("can't read message type")
 	}
 	typeBuf := buf[pos:1]
 	pos += 1
-	messageType := nwtypes.MessageType(typeBuf[0])
+	messageType := types.MessageType(typeBuf[0])
 	if len(buf) < pos + 4 {
 		return fmt.Errorf("can't read message length")
 	}
