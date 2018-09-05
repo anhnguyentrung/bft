@@ -15,6 +15,9 @@ import (
 	"github.com/libp2p/go-libp2p-protocol"
 	"github.com/libp2p/go-libp2p-peer"
 	"github.com/libp2p/go-libp2p-peerstore"
+	"os"
+	"io/ioutil"
+	"strconv"
 )
 
 type NetManager struct {
@@ -30,8 +33,7 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 		listenPort:listenPort,
 		targets:targets,
 	}
-	r := rand.Reader
-	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
+	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
 		return nil
 	}
@@ -49,6 +51,33 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 	log.Printf("address: %s", fullAddr)
 	netManager.host = host
 	return netManager
+}
+
+func loadIdentity(fileName string) (crypto.PrivKey, error) {
+	f, err := os.Open(fileName)
+	if err != nil {
+		return generateNewIdentity(fileName)
+	}
+	defer f.Close()
+	buf, _ := ioutil.ReadAll(f)
+	return crypto.UnmarshalPrivateKey(buf)
+}
+
+func generateNewIdentity(fileName string) (crypto.PrivKey, error) {
+	r := rand.Reader
+	priv, _, err := crypto.GenerateKeyPairWithReader(crypto.RSA, 2048, r)
+	if err != nil {
+		return nil, err
+	}
+	buf, err := crypto.MarshalPrivateKey(priv)
+	if err != nil {
+		return nil, err
+	}
+	err = ioutil.WriteFile(fileName, buf, 0644)
+	if err != nil {
+		return nil, err
+	}
+	return priv, nil
 }
 
 func (nm *NetManager) Run() {
@@ -77,7 +106,8 @@ func (nm *NetManager) readData(rw *bufio.ReadWriter) {
 	for {
 		str, err := rw.ReadString('\n')
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
+			return
 		}
 		if str == "" {
 			return
