@@ -33,3 +33,7 @@ type SignedBlock struct {
 	Block Block
 	Signature crypto.Signature
 }
+
+func (sb *SignedBlock) Header() BlockHeader{
+	return sb.Block.Header
+}

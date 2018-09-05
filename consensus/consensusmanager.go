@@ -4,6 +4,7 @@ import (
 	"bft/types"
 	"sync"
 	"log"
+	"bytes"
 )
 
 type ConsensusStateType uint8
@@ -112,7 +113,19 @@ func (cm *ConsensusManager) onVote(vote types.Vote) {
 }
 
 func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
+	// check proposal's round and height
+	if result := proposal.View.Compare(cm.state.view); result != 0 {
+		// if proposal is an existing block, broadcast commit
+		if result < 0 {
 
+		}
+	}
+	proposer := proposal.ProposalBlock.Header().Proposer
+	// Is proposal from valid proposer
+	if !cm.isValidator(proposer) {
+		return
+	}
+	// check block header
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
@@ -125,4 +138,13 @@ func (cm *ConsensusManager) onCommit(vote types.Vote) {
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 
+}
+
+func (cm *ConsensusManager) isValidator(validator types.Validator) bool {
+	for _, v := range cm.validators {
+		if v.Address == validator.Address && bytes.Equal(v.PublicKey.Data, validator.PublicKey.Data) {
+			return true
+		}
+	}
+	return false
 }
