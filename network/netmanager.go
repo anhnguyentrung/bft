@@ -10,7 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p-net"
 	"log"
 	"bufio"
-	"bft/network/types"
+	nwtypes "bft/network/types"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/libp2p/go-libp2p-protocol"
 	"github.com/libp2p/go-libp2p-peer"
@@ -18,22 +18,26 @@ import (
 	"os"
 	"io/ioutil"
 	"strconv"
+	"bft/consensus"
+	types "bft/types"
 )
 
 type NetManager struct {
-	host 		host.Host
-	ipAddress 	string
-	listenPort 	int
-	targets		[]string
+	host       		host.Host
+	ipAddress  		string
+	listenPort 		int
+	targets    		[]string
+	consensusManager *consensus.ConsensusManager
 }
 
 func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManager {
 	netManager := &NetManager{
-		ipAddress:ipAddress,
-		listenPort:listenPort,
-		targets:targets,
+		ipAddress:			ipAddress,
+		listenPort:			listenPort,
+		targets:			targets,
+		consensusManager:	consensus.NewConsensusManager(),
 	}
-	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
+	priv, err := loadIdentity(nwtypes.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
 		return nil
 	}
@@ -60,7 +64,7 @@ func (nm *NetManager) Run() {
 }
 
 func (nm *NetManager) listen() {
-	pid := protocol.ID(types.P2P + types.NetworkVersion)
+	pid := protocol.ID(nwtypes.P2P + nwtypes.NetworkVersion)
 	nm.host.SetStreamHandler(pid, nm.handleStream)
 }
 
@@ -86,15 +90,29 @@ func (nm *NetManager) readData(rw *bufio.ReadWriter) {
 			return
 		}
 		if str != "\n" {
-			message := types.Message{
-				Header:		types.MessageHeader{},
+			message := nwtypes.Message{
+				Header:		nwtypes.MessageHeader{},
 				Payload: 	make([]byte, 0),
 			}
 			err = UnmarshalBinaryMessage([]byte(str), &message)
 			if err != nil {
 				log.Fatal(err)
 			}
+			nm.OnReceive(message)
 		}
+	}
+}
+
+func (nm *NetManager) OnReceive(message nwtypes.Message) {
+	messageType := message.Header.Type
+	switch messageType {
+	case nwtypes.Vote:
+		vote := types.Vote{}
+		err := UnmarshalBinary(message.Payload, &vote)
+		if err != nil {
+			log.Fatal(err)
+		}
+		nm.consensusManager.Receive(vote)
 	}
 }
 
@@ -119,7 +137,7 @@ func (nm *NetManager) addPeer(peerAddress string) {
 	targetAddr := fullAddr.Decapsulate(ipfsPart)
 	nm.host.Peerstore().AddAddr(peerId, targetAddr, peerstore.PermanentAddrTTL)
 	log.Println("opening stream")
-	protocolId := protocol.ID(types.P2P + types.NetworkVersion)
+	protocolId := protocol.ID(nwtypes.P2P + nwtypes.NetworkVersion)
 	stream, err := nm.host.NewStream(context.Background(), peerId, protocolId)
 	if err != nil {
 		log.Fatal(err)

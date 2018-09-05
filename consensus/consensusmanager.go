@@ -23,10 +23,27 @@ type ConsensusState struct {
 	voteStorage map[ConsensusStateType]types.BlockVotes
 }
 
+func NewConsensusState() *ConsensusState {
+	cs := &ConsensusState{}
+	cs.state = NewRound
+	cs.voteStorage = make(map[ConsensusStateType]types.BlockVotes, 0)
+	states := []ConsensusStateType{NewRound, PrePrepared, Prepared, Committed, FinalCommitted, RoundChange}
+	for _, state := range states {
+		cs.voteStorage[state] = make(types.BlockVotes, 0)
+	}
+	return cs
+}
+
 type ConsensusManager struct {
 	mutex sync.Mutex
-	state ConsensusState
+	state *ConsensusState
 	validators []types.Validator
+}
+
+func NewConsensusManager() *ConsensusManager {
+	cm := &ConsensusManager{}
+	cm.state = NewConsensusState()
+	return cm
 }
 
 func (cm *ConsensusManager) getVotes(blockHeightId types.BlockHeightId, state ConsensusStateType) []types.Vote {
@@ -54,4 +71,13 @@ func (cm *ConsensusManager) removeVotes(blockHeightId types.BlockHeightId) {
 		}
 	}
 	cm.mutex.Unlock()
+}
+
+func (cm *ConsensusManager) SetValidators(validators []types.Validator) {
+	cm.validators = validators
+}
+
+func (cm *ConsensusManager) Receive(vote types.Vote) {
+	vote := types.Vote{}
+	err = Unmark([]byte(str), &message)
 }
