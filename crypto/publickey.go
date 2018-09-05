@@ -33,3 +33,7 @@ func (publicKey *PublicKey) String() string {
 	encodeData := append(publicKey.Data, checkSum...)
 	return base58.Encode(encodeData)
 }
+
+func (publicKey PublicKey) Equals(target PublicKey) bool {
+	return bytes.Equal(publicKey.Data, target.Data)
+}

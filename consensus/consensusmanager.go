@@ -4,7 +4,6 @@ import (
 	"bft/types"
 	"sync"
 	"log"
-	"bytes"
 )
 
 type ConsensusStateType uint8
@@ -41,12 +40,14 @@ func NewConsensusState() *ConsensusState {
 type ConsensusManager struct {
 	mutex sync.Mutex
 	state *ConsensusState
-	validators []types.Validator
+	validatorManager *ValidatorManager
 }
 
 func NewConsensusManager() *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.state = NewConsensusState()
+	validators := types.Validators{}
+	cm.validatorManager = NewValidatorManager(validators)
 	return cm
 }
 
@@ -75,10 +76,6 @@ func (cm *ConsensusManager) removeVotes(blockHeightId types.BlockHeightId) {
 		}
 	}
 	cm.mutex.Unlock()
-}
-
-func (cm *ConsensusManager) SetValidators(validators []types.Validator) {
-	cm.validators = validators
 }
 
 func (cm *ConsensusManager) Receive(message types.Message, decoder types.DeserializeFunc) {
@@ -122,7 +119,8 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 	}
 	proposer := proposal.ProposalBlock.Header().Proposer
 	// Is proposal from valid proposer
-	if !cm.isValidator(proposer) {
+	if !cm.validatorManager.isProposer(proposer) {
+		log.Println("Don't accept a proposal from invalid proposer")
 		return
 	}
 	// check block header
@@ -138,13 +136,4 @@ func (cm *ConsensusManager) onCommit(vote types.Vote) {
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 
-}
-
-func (cm *ConsensusManager) isValidator(validator types.Validator) bool {
-	for _, v := range cm.validators {
-		if v.Address == validator.Address && bytes.Equal(v.PublicKey.Data, validator.PublicKey.Data) {
-			return true
-		}
-	}
-	return false
 }
