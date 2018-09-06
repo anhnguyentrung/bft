@@ -34,7 +34,7 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 		ipAddress:			ipAddress,
 		listenPort:			listenPort,
 		targets:			targets,
-		consensusManager:	consensus.NewConsensusManager(),
+		consensusManager:	consensus.NewConsensusManager(MarshalBinary, UnmarshalBinary),
 	}
 	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
@@ -106,7 +106,7 @@ func (nm *NetManager) OnReceive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.VoteMessage, types.ProposalMessage:
-		nm.consensusManager.Receive(message, UnmarshalBinary)
+		nm.consensusManager.Receive(message)
 	}
 }
 

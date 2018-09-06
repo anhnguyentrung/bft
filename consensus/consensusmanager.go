@@ -4,6 +4,7 @@ import (
 	"bft/types"
 	"sync"
 	"log"
+	"crypto/sha256"
 )
 
 type ConsensusStateType uint8
@@ -41,13 +42,18 @@ type ConsensusManager struct {
 	mutex sync.Mutex
 	state *ConsensusState
 	validatorManager *ValidatorManager
+	head *types.BlockHeader
+	decoder types.DeserializeFunc
+	encoder types.SerializeFunc
 }
 
-func NewConsensusManager() *ConsensusManager {
+func NewConsensusManager(encoder types.SerializeFunc, decoder types.DeserializeFunc) *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.state = NewConsensusState()
 	validators := types.Validators{}
 	cm.validatorManager = NewValidatorManager(validators)
+	cm.encoder = encoder
+	cm.decoder = decoder
 	return cm
 }
 
@@ -78,19 +84,19 @@ func (cm *ConsensusManager) removeVotes(blockHeightId types.BlockHeightId) {
 	cm.mutex.Unlock()
 }
 
-func (cm *ConsensusManager) Receive(message types.Message, decoder types.DeserializeFunc) {
+func (cm *ConsensusManager) Receive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.VoteMessage:
 		vote := types.Vote{}
-		err := decoder(message.Payload, &vote)
+		err := cm.decoder(message.Payload, &vote)
 		if err != nil {
 			log.Fatal(err)
 		}
 		cm.onVote(vote)
 	case types.ProposalMessage:
 		proposal := types.Proposal{}
-		err := decoder(message.Payload, &proposal)
+		err := cm.decoder(message.Payload, &proposal)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -123,7 +129,41 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 		log.Println("Don't accept a proposal from invalid proposer")
 		return
 	}
-	// check block header
+	// check proposal
+
+}
+
+func (cm *ConsensusManager) verifyProposal(proposal types.Proposal) bool {
+	// Does blockchain have a head
+	if cm.head == nil {
+		log.Println("blockchain hasn't a head")
+		return false
+	}
+	blockHeader := proposal.ProposalBlock.Header()
+	// Are block's height and hash valid
+	if !blockHeader.HeightId.IsValid() {
+		log.Println("block's height or hash is invalid")
+		return false
+	}
+	// Does block proposal's previous id equal head's id
+	if !blockHeader.PreviousId.Equals(cm.head.Id()) {
+		log.Println("unlinkable block")
+		return false
+	}
+	publicKey := proposal.ProposalBlock.Header().Proposer.PublicKey
+	// Is block signed by proposer
+	blockHeaderBuf, err := cm.encoder(blockHeader)
+	if err != nil {
+		log.Println(err)
+		return false
+	}
+	blockHash := sha256.Sum256(blockHeaderBuf)
+	signature := proposal.ProposalBlock.Signature()
+	if !signature.Verify(publicKey, blockHash[:]) {
+		log.Println("block's signature is wrong")
+		return false
+	}
+	return true
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {

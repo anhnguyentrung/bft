@@ -1,10 +1,5 @@
 package types
 
-import (
-	"time"
-	"bft/crypto"
-)
-
 type View struct {
 	Round 		uint64
 	HeightId 	BlockHeightId
@@ -46,6 +41,11 @@ func (v View) Compare(target View) int {
 type Proposal struct {
 	View 			View
 	ProposalBlock 	SignedBlock
-	Timestamp 		time.Time
-	Signature 		crypto.Signature
+}
+
+func (p Proposal) DataIgnoredSignature() Proposal {
+	return Proposal{
+		p.View,
+		p.ProposalBlock,
+	}
 }

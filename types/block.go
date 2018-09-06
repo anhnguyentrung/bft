@@ -18,6 +18,14 @@ func (blockHeightId *BlockHeightId) String() string {
 	return h + id
 }
 
+func (blockHeightId *BlockHeightId) IsValid() bool {
+	if blockHeightId.Height == 0 {
+		return false
+	}
+	emptyHash := Hash{}
+	return !blockHeightId.Id.Equals(emptyHash)
+}
+
 type BlockHeader struct {
 	HeightId BlockHeightId
 	PreviousId Hash
@@ -25,15 +33,27 @@ type BlockHeader struct {
 	Timestamp time.Time
 }
 
-type Block struct {
-	Header BlockHeader
+func (blockHeader *BlockHeader) Height() uint64 {
+	return blockHeader.Height()
 }
 
-type SignedBlock struct {
-	Block Block
+func (blockHeader *BlockHeader) Id() Hash {
+	return blockHeader.Id()
+}
+
+type SignedBlockHeader struct {
+	Header BlockHeader
 	Signature crypto.Signature
 }
 
+type SignedBlock struct {
+	SignedHeader SignedBlockHeader
+}
+
 func (sb *SignedBlock) Header() BlockHeader{
-	return sb.Block.Header
+	return sb.SignedHeader.Header
+}
+
+func (sb *SignedBlock) Signature() crypto.Signature {
+	return sb.SignedHeader.Signature
 }
