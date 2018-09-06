@@ -49,3 +49,7 @@ func (p Proposal) DataIgnoredSignature() Proposal {
 		p.ProposalBlock,
 	}
 }
+
+func (p Proposal) BlockId() Hash {
+	return p.ProposalBlock.Header().Id()
+}

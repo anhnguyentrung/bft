@@ -10,7 +10,7 @@ import (
 
 type ConsensusManager struct {
 	mutex sync.Mutex
-	state *ConsensusState
+	currentState *ConsensusState
 	validatorManager *ValidatorManager
 	head *types.BlockHeader
 	enDecoder types.EnDecoder
@@ -19,7 +19,7 @@ type ConsensusManager struct {
 
 func NewConsensusManager(enDecoder types.EnDecoder, signer types.Signfunc, validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
-	cm.state = NewConsensusState()
+	cm.currentState = NewConsensusState()
 	cm.validatorManager = NewValidatorManager(validators, address)
 	cm.enDecoder = enDecoder
 	return cm
@@ -27,16 +27,16 @@ func NewConsensusManager(enDecoder types.EnDecoder, signer types.Signfunc, valid
 
 func (cm *ConsensusManager) getVotes(blockHeightId types.BlockHeightId, state ConsensusStateType) []types.Vote {
 	heightId := blockHeightId.String()
-	return cm.state.voteStorage[state][heightId]
+	return cm.currentState.voteStorage[state][heightId]
 }
 
 func (cm *ConsensusManager) addVote(vote types.Vote, blockHeightId types.BlockHeightId, state ConsensusStateType) {
 	cm.mutex.Lock()
 	heightId := blockHeightId.String()
-	if _, ok := cm.state.voteStorage[state][heightId]; !ok {
-		cm.state.voteStorage[state][heightId] = types.Votes{}
+	if _, ok := cm.currentState.voteStorage[state][heightId]; !ok {
+		cm.currentState.voteStorage[state][heightId] = types.Votes{}
 	}
-	cm.state.voteStorage[state][heightId] = append(cm.state.voteStorage[state][heightId], vote)
+	cm.currentState.voteStorage[state][heightId] = append(cm.currentState.voteStorage[state][heightId], vote)
 	cm.mutex.Unlock()
 }
 
@@ -45,8 +45,8 @@ func (cm *ConsensusManager) removeVotes(blockHeightId types.BlockHeightId) {
 	heightId := blockHeightId.String()
 	states := []ConsensusStateType{NewRound, PrePrepared, Prepared, Committed, FinalCommitted, RoundChange}
 	for _, state := range states {
-		if _, ok := cm.state.voteStorage[state][heightId]; ok {
-			delete(cm.state.voteStorage[state], heightId)
+		if _, ok := cm.currentState.voteStorage[state][heightId]; ok {
+			delete(cm.currentState.voteStorage[state], heightId)
 		}
 	}
 	cm.mutex.Unlock()
@@ -85,7 +85,7 @@ func (cm *ConsensusManager) onVote(vote types.Vote) {
 
 func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 	// check proposal's round and height
-	if result := proposal.View.Compare(cm.state.view); result != 0 {
+	if result := proposal.View.Compare(cm.currentState.view); result != 0 {
 		// if proposal is an existing block, broadcast commit
 		if result < 0 {
 			//TODO: handle the existing block
@@ -94,7 +94,7 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 	proposer := proposal.ProposalBlock.Header().Proposer
 	// Is proposal from valid proposer
 	if !cm.validatorManager.isProposer(proposer) {
-		log.Println("Don't accept a proposal from invalid proposer")
+		log.Println("Don't accept a proposal from unknown proposer")
 		return
 	}
 	// check proposal
@@ -102,9 +102,9 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 		return
 	}
 	//TODO: handle the future block
-	if cm.state.stateType == NewRound {
-		cm.state.setProposal(proposal)
-		cm.state.setSate(PrePrepared)
+	if cm.currentState.stateType == NewRound {
+		cm.currentState.setProposal(proposal)
+		cm.currentState.setSate(PrePrepared)
 	}
 }
 
@@ -142,7 +142,24 @@ func (cm *ConsensusManager) verifyProposal(proposal types.Proposal) bool {
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
-
+	// check prepare's round and height
+	if vote.View.Compare(cm.currentState.view) != 0 {
+		log.Println("prepare's round and height are invalid")
+		return
+	}
+	// check current state
+	if cm.currentState.stateType == NewRound {
+		return
+	}
+	// is prepare from a valid validator?
+	if index, _ := cm.validatorManager.getByAddress(vote.Voter.Address); index == -1 {
+		log.Println("Don't accept prepare message from a unknown validator")
+		return
+	}
+	// verify block id
+	if !vote.BlockId.Equals(cm.currentState.proposal.BlockId()) {
+		return
+	}
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
@@ -155,8 +172,8 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 
 func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 	voter := cm.validatorManager.self
-	view := cm.state.proposal.View
-	blockId := cm.state.proposal.ProposalBlock.Header().Id()
+	view := cm.currentState.proposal.View
+	blockId := cm.currentState.proposal.BlockId()
 	vote := types.Vote {
 		voter,
 		voteType,
