@@ -26,6 +26,8 @@ type NetManager struct {
 	ipAddress  		string
 	listenPort 		int
 	targets    		[]string
+	keyPair			types.KeyPair
+	address			string
 	consensusManager *consensus.ConsensusManager
 }
 
@@ -34,8 +36,17 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 		ipAddress:			ipAddress,
 		listenPort:			listenPort,
 		targets:			targets,
-		consensusManager:	consensus.NewConsensusManager(MarshalBinary, UnmarshalBinary),
 	}
+	//TODO: get initial validators
+	validators := types.Validators{}
+	enDecoder := types.EnDecoder{
+		MarshalBinary,
+		UnmarshalBinary,
+	}
+	//TODO: load key pair from wallet
+	signer := netManager.keyPair.PrivateKey.Sign
+	address := netManager.keyPair.PublicKey.Address()
+	netManager.consensusManager = consensus.NewConsensusManager(enDecoder, signer, validators, address)
 	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
 		return nil

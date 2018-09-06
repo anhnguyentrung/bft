@@ -10,16 +10,22 @@ import (
 type ValidatorManager struct {
 	rwMutex sync.RWMutex
 	validators types.Validators
+	self types.Validator
 	proposer types.Validator
 }
 
-func NewValidatorManager(validators types.Validators) *ValidatorManager {
+func NewValidatorManager(validators types.Validators, address string) *ValidatorManager {
 	vm := &ValidatorManager{}
 	vm.validators = validators
 	sort.Sort(vm.validators)
 	if vm.size() > 0 {
 		vm.proposer = vm.getByIndex(0)
 	}
+	index, self := vm.getByAddress(address)
+	if index == -1 {
+		log.Fatal("self address is invalid")
+	}
+	vm.self = self
 	return vm
 }
 

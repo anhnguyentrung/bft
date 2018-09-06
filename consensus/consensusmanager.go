@@ -5,55 +5,23 @@ import (
 	"sync"
 	"log"
 	"crypto/sha256"
+	"bft/crypto"
 )
-
-type ConsensusStateType uint8
-
-const (
-	NewRound ConsensusStateType = iota
-	PrePrepared
-	Prepared
-	Committed
-	FinalCommitted
-	RoundChange
-)
-
-type ConsensusState struct {
-	state ConsensusStateType
-	view types.View
-	lockedView types.View
-	voteStorage map[ConsensusStateType]types.BlockVotes
-}
-
-func NewConsensusState() *ConsensusState {
-	cs := &ConsensusState{}
-	cs.state = NewRound
-	cs.view.Round = 1
-	cs.view.HeightId.Height = 1
-	cs.voteStorage = make(map[ConsensusStateType]types.BlockVotes, 0)
-	states := []ConsensusStateType{NewRound, PrePrepared, Prepared, Committed, FinalCommitted, RoundChange}
-	for _, state := range states {
-		cs.voteStorage[state] = make(types.BlockVotes, 0)
-	}
-	return cs
-}
 
 type ConsensusManager struct {
 	mutex sync.Mutex
 	state *ConsensusState
 	validatorManager *ValidatorManager
 	head *types.BlockHeader
-	decoder types.DeserializeFunc
-	encoder types.SerializeFunc
+	enDecoder types.EnDecoder
+	signer types.Signfunc
 }
 
-func NewConsensusManager(encoder types.SerializeFunc, decoder types.DeserializeFunc) *ConsensusManager {
+func NewConsensusManager(enDecoder types.EnDecoder, signer types.Signfunc, validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.state = NewConsensusState()
-	validators := types.Validators{}
-	cm.validatorManager = NewValidatorManager(validators)
-	cm.encoder = encoder
-	cm.decoder = decoder
+	cm.validatorManager = NewValidatorManager(validators, address)
+	cm.enDecoder = enDecoder
 	return cm
 }
 
@@ -89,14 +57,14 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 	switch messageType {
 	case types.VoteMessage:
 		vote := types.Vote{}
-		err := cm.decoder(message.Payload, &vote)
+		err := cm.enDecoder.Decoder(message.Payload, &vote)
 		if err != nil {
 			log.Fatal(err)
 		}
 		cm.onVote(vote)
 	case types.ProposalMessage:
 		proposal := types.Proposal{}
-		err := cm.decoder(message.Payload, &proposal)
+		err := cm.enDecoder.Decoder(message.Payload, &proposal)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -120,7 +88,7 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 	if result := proposal.View.Compare(cm.state.view); result != 0 {
 		// if proposal is an existing block, broadcast commit
 		if result < 0 {
-
+			//TODO: handle the existing block
 		}
 	}
 	proposer := proposal.ProposalBlock.Header().Proposer
@@ -130,7 +98,14 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 		return
 	}
 	// check proposal
-
+	if !cm.verifyProposal(proposal) {
+		return
+	}
+	//TODO: handle the future block
+	if cm.state.stateType == NewRound {
+		cm.state.setProposal(proposal)
+		cm.state.setSate(PrePrepared)
+	}
 }
 
 func (cm *ConsensusManager) verifyProposal(proposal types.Proposal) bool {
@@ -152,7 +127,7 @@ func (cm *ConsensusManager) verifyProposal(proposal types.Proposal) bool {
 	}
 	publicKey := proposal.ProposalBlock.Header().Proposer.PublicKey
 	// Is block signed by proposer
-	blockHeaderBuf, err := cm.encoder(blockHeader)
+	blockHeaderBuf, err := cm.enDecoder.Encoder(blockHeader)
 	if err != nil {
 		log.Println(err)
 		return false
@@ -176,4 +151,30 @@ func (cm *ConsensusManager) onCommit(vote types.Vote) {
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 
+}
+
+func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
+	voter := cm.validatorManager.self
+	view := cm.state.proposal.View
+	blockId := cm.state.proposal.ProposalBlock.Header().Id()
+	vote := types.Vote {
+		voter,
+		voteType,
+		view,
+		blockId,
+		crypto.Signature{},
+	}
+	buf, err := cm.enDecoder.Encoder(vote)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	hash := sha256.Sum256(buf)
+	sig, err := cm.signer(hash[:])
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	vote.Signature = sig
+	//TODO: broadcast vote
 }

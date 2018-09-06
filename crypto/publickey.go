@@ -34,6 +34,10 @@ func (publicKey *PublicKey) String() string {
 	return base58.Encode(encodeData)
 }
 
+func (publicKey *PublicKey) Address() string {
+	return publicKey.String()
+}
+
 func (publicKey PublicKey) Equals(target PublicKey) bool {
 	return bytes.Equal(publicKey.Data, target.Data)
 }

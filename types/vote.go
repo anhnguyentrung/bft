@@ -1,7 +1,6 @@
 package types
 
 import (
-	"time"
 	"bft/crypto"
 )
 
@@ -18,8 +17,7 @@ type Vote struct {
 	Type 		VoteType
 	View 		View
 	BlockId 	Hash
-	Timestamp 	time.Time
-	Signature 	crypto.PublicKey
+	Signature 	crypto.Signature
 }
 
 type Votes = []Vote
