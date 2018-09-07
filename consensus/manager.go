@@ -13,7 +13,7 @@ type BroadcastFunc func(message types.Message)
 type ConsensusManager struct {
 	mutex sync.Mutex
 	currentState *ConsensusState
-	validatorManager *ValidatorManager
+	validatorSet *types.ValidatorSet
 	head *types.BlockHeader
 	enDecoder types.EnDecoder
 	signer crypto.SignFunc
@@ -23,7 +23,7 @@ type ConsensusManager struct {
 func NewConsensusManager(validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.currentState = NewConsensusState()
-	cm.validatorManager = NewValidatorManager(validators, address)
+	cm.validatorSet = types.NewValidatorSet(validators, address)
 	return cm
 }
 
@@ -104,7 +104,7 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 	}
 	proposer := proposal.ProposalBlock.Header().Proposer
 	// Is proposal from valid proposer
-	if !cm.validatorManager.isProposer(proposer) {
+	if !cm.validatorSet.IsProposer(proposer) {
 		log.Println("Don't accept a proposal from unknown proposer")
 		return
 	}
@@ -113,14 +113,7 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 		return
 	}
 	//TODO: handle the future block
-	cm.enterPrePrepared(proposal)
-}
-
-func (cm *ConsensusManager) enterPrePrepared(proposal types.Proposal) {
-	if cm.currentState.stateType == NewRound {
-		cm.currentState.setProposal(proposal)
-		cm.currentState.setSate(PrePrepared)
-	}
+	cm.currentState.enterPrePrepared(proposal)
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
@@ -131,13 +124,10 @@ func (cm *ConsensusManager) onPrepare(vote types.Vote) {
 	proposalHeightId := cm.currentState.getProposalHeightId()
 	// if the validator have a locked block, she should broadcast COMMIT on the locked block and enter prepared
 	if cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.getLockedHeightId()) {
-
+		cm.currentState.enterPrepared()
 	}
-}
-
-func (cm *ConsensusManager) enterPrepared() {
-	// lock proposal block
-
+	// the validator received +2/3 prepare
+	if
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
@@ -149,7 +139,7 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 }
 
 func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
-	voter := cm.validatorManager.self
+	voter := cm.validatorSet.Self()
 	view := cm.currentState.proposal.View
 	blockId := cm.currentState.proposal.BlockId()
 	vote := types.Vote {
