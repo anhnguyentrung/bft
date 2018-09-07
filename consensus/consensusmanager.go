@@ -8,6 +8,8 @@ import (
 	"bft/crypto"
 )
 
+type BroadcastFunc func(message types.Message)
+
 type ConsensusManager struct {
 	mutex sync.Mutex
 	currentState *ConsensusState
@@ -15,14 +17,26 @@ type ConsensusManager struct {
 	head *types.BlockHeader
 	enDecoder types.EnDecoder
 	signer crypto.SignFunc
+	broadcaster BroadcastFunc
 }
 
-func NewConsensusManager(enDecoder types.EnDecoder, signer crypto.SignFunc, validators types.Validators, address string) *ConsensusManager {
+func NewConsensusManager(validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.currentState = NewConsensusState()
 	cm.validatorManager = NewValidatorManager(validators, address)
-	cm.enDecoder = enDecoder
 	return cm
+}
+
+func (cm *ConsensusManager) SetEnDecoder(enDecoder types.EnDecoder) {
+	cm.enDecoder = enDecoder
+}
+
+func (cm *ConsensusManager) SetSigner(signer crypto.SignFunc) {
+	cm.signer = signer
+}
+
+func (cm *ConsensusManager) SetBroadcaster(broadcaster BroadcastFunc) {
+	cm.broadcaster = broadcaster
 }
 
 func (cm *ConsensusManager) getVotes(blockHeightId types.BlockHeightId, state ConsensusStateType) []types.Vote {

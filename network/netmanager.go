@@ -31,6 +31,7 @@ type NetManager struct {
 	keyPair			types.KeyPair
 	address			string
 	consensusManager *consensus.ConsensusManager
+	dispatcher		*Dispatcher
 }
 
 func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManager {
@@ -41,15 +42,18 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 		connections:		make(map[string]*Connection),
 	}
 	//TODO: get initial validators
-	//validators := types.Validators{}
-	//enDecoder := types.EnDecoder{
-	//	MarshalBinary,
-	//	UnmarshalBinary,
-	//}
-	////TODO: load key pair from wallet
-	//signer := netManager.keyPair.PrivateKey.Sign
-	//address := netManager.keyPair.PublicKey.Address()
-	//netManager.consensusManager = consensus.NewConsensusManager(enDecoder, signer, validators, address)
+	validators := types.Validators{}
+	enDecoder := types.EnDecoder{
+		MarshalBinary,
+		UnmarshalBinary,
+	}
+	//TODO: load key pair from wallet
+	signer := netManager.keyPair.PrivateKey.Sign
+	address := netManager.keyPair.PublicKey.Address()
+	netManager.consensusManager = consensus.NewConsensusManager(validators, address)
+	netManager.consensusManager.SetEnDecoder(enDecoder)
+	netManager.consensusManager.SetSigner(signer)
+	netManager.consensusManager.SetBroadcaster(netManager.broadcast)
 	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
 		return nil
@@ -99,6 +103,12 @@ func (nm *NetManager) onReceive(message types.Message) {
 	switch messageType {
 	case types.VoteMessage, types.ProposalMessage:
 		nm.consensusManager.Receive(message)
+	}
+}
+
+func (nm *NetManager) broadcast(message types.Message) {
+	for _, c := range nm.connections {
+		c.Send(message)
 	}
 }
 
