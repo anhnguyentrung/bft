@@ -39,28 +39,25 @@ func (cm *ConsensusManager) SetBroadcaster(broadcaster BroadcastFunc) {
 	cm.broadcaster = broadcaster
 }
 
-func (cm *ConsensusManager) getVotes(blockHeightId types.BlockHeightId, state ConsensusStateType) []types.Vote {
-	heightId := blockHeightId.String()
-	return cm.currentState.voteStorage[state][heightId]
+func (cm *ConsensusManager) getVotes(blockId types.Hash, voteType types.VoteType) []types.Vote {
+	return cm.currentState.voteStorage[voteType][blockId.String()]
 }
 
-func (cm *ConsensusManager) addVote(vote types.Vote, blockHeightId types.BlockHeightId, state ConsensusStateType) {
+func (cm *ConsensusManager) addVote(vote types.Vote, blockId types.Hash, voteType types.VoteType) {
 	cm.mutex.Lock()
-	heightId := blockHeightId.String()
-	if _, ok := cm.currentState.voteStorage[state][heightId]; !ok {
-		cm.currentState.voteStorage[state][heightId] = types.Votes{}
+	if _, ok := cm.currentState.voteStorage[voteType][blockId.String()]; !ok {
+		cm.currentState.voteStorage[voteType][blockId.String()] = types.Votes{}
 	}
-	cm.currentState.voteStorage[state][heightId] = append(cm.currentState.voteStorage[state][heightId], vote)
+	cm.currentState.voteStorage[voteType][blockId.String()] = append(cm.currentState.voteStorage[voteType][blockId.String()], vote)
 	cm.mutex.Unlock()
 }
 
-func (cm *ConsensusManager) removeVotes(blockHeightId types.BlockHeightId) {
+func (cm *ConsensusManager) removeVotes(blockId types.Hash) {
 	cm.mutex.Lock()
-	heightId := blockHeightId.String()
-	states := []ConsensusStateType{NewRound, PrePrepared, Prepared, Committed, FinalCommitted, RoundChange}
-	for _, state := range states {
-		if _, ok := cm.currentState.voteStorage[state][heightId]; ok {
-			delete(cm.currentState.voteStorage[state], heightId)
+	voteTypes := []types.VoteType{types.Prepare, types.Commit, types.RoundChange}
+	for _, voteType := range voteTypes {
+		if _, ok := cm.currentState.voteStorage[voteType][blockId.String()]; ok {
+			delete(cm.currentState.voteStorage[voteType], blockId.String())
 		}
 	}
 	cm.mutex.Unlock()
@@ -71,14 +68,14 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 	switch messageType {
 	case types.VoteMessage:
 		vote := types.Vote{}
-		err := cm.enDecoder.Decoder(message.Payload, &vote)
+		err := cm.enDecoder.Decode(message.Payload, &vote)
 		if err != nil {
 			log.Fatal(err)
 		}
 		cm.onVote(vote)
 	case types.ProposalMessage:
 		proposal := types.Proposal{}
-		err := cm.enDecoder.Decoder(message.Payload, &proposal)
+		err := cm.enDecoder.Decode(message.Payload, &proposal)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -116,64 +113,31 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 		return
 	}
 	//TODO: handle the future block
+	cm.enterPrePrepared(proposal)
+}
+
+func (cm *ConsensusManager) enterPrePrepared(proposal types.Proposal) {
 	if cm.currentState.stateType == NewRound {
 		cm.currentState.setProposal(proposal)
 		cm.currentState.setSate(PrePrepared)
 	}
 }
 
-func (cm *ConsensusManager) verifyProposal(proposal types.Proposal) bool {
-	// Does blockchain have a head
-	if cm.head == nil {
-		log.Println("blockchain hasn't a head")
-		return false
+func (cm *ConsensusManager) onPrepare(vote types.Vote) {
+	if !cm.verifyPrepare(vote) {
+		return
 	}
-	blockHeader := proposal.ProposalBlock.Header()
-	// Are block's height and hash valid
-	if !blockHeader.HeightId.IsValid() {
-		log.Println("block's height or hash is invalid")
-		return false
+	cm.currentState.applyVote(vote)
+	proposalHeightId := cm.currentState.getProposalHeightId()
+	// if the validator have a locked block, she should broadcast COMMIT on the locked block and enter prepared
+	if cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.getLockedHeightId()) {
+
 	}
-	// Does block proposal's previous id equal head's id
-	if !blockHeader.PreviousId.Equals(cm.head.Id()) {
-		log.Println("unlinkable block")
-		return false
-	}
-	publicKey := proposal.ProposalBlock.Header().Proposer.PublicKey
-	// Is block signed by proposer
-	blockHeaderBuf, err := cm.enDecoder.Encoder(blockHeader)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	blockHash := sha256.Sum256(blockHeaderBuf)
-	signature := proposal.ProposalBlock.Signature()
-	if !signature.Verify(publicKey, blockHash[:]) {
-		log.Println("block's signature is wrong")
-		return false
-	}
-	return true
 }
 
-func (cm *ConsensusManager) onPrepare(vote types.Vote) {
-	// check prepare's round and height
-	if vote.View.Compare(cm.currentState.view) != 0 {
-		log.Println("prepare's round and height are invalid")
-		return
-	}
-	// check current state
-	if cm.currentState.stateType == NewRound {
-		return
-	}
-	// is prepare from a valid validator?
-	if index, _ := cm.validatorManager.getByAddress(vote.Voter.Address); index == -1 {
-		log.Println("Don't accept prepare message from a unknown validator")
-		return
-	}
-	// verify block id
-	if !vote.BlockId.Equals(cm.currentState.proposal.BlockId()) {
-		return
-	}
+func (cm *ConsensusManager) enterPrepared() {
+	// lock proposal block
+
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
@@ -195,7 +159,7 @@ func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 		blockId,
 		crypto.Signature{},
 	}
-	buf, err := cm.enDecoder.Encoder(vote)
+	buf, err := cm.enDecoder.Encode(vote)
 	if err != nil {
 		log.Println(err)
 		return
@@ -207,5 +171,14 @@ func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 		return
 	}
 	vote.Signature = sig
-	//TODO: broadcast vote
+	payload, err := cm.enDecoder.Encode(vote)
+	length := uint32(len(payload))
+	message := types.Message{
+		types.MessageHeader{
+			types.VoteMessage,
+			length,
+		},
+		payload,
+	}
+	cm.broadcaster(message)
 }

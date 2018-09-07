@@ -2,31 +2,21 @@ package types
 
 type View struct {
 	Round 		uint64
-	HeightId 	BlockHeightId
-}
-
-func (v View) Height() uint64 {
-	return v.HeightId.Height
-}
-
-func (v View) Id() Hash {
-	return v.HeightId.Id
+	Height 		uint64
 }
 
 func (v View) Next() View {
 	return View{
 		Round: v.Round + 1,
-		HeightId: BlockHeightId{
-			Height: v.Height() + 1,
-		},
+		Height: v.Height + 1,
 	}
 }
 
 func (v View) Compare(target View) int {
-	if v.Height() < target.Height() {
+	if v.Height < target.Height {
 		return -1
 	}
-	if v.Height() > target.Height() {
+	if v.Height > target.Height {
 		return 1
 	}
 	if v.Round < target.Round {
@@ -52,4 +42,8 @@ func (p Proposal) DataIgnoredSignature() Proposal {
 
 func (p Proposal) BlockId() Hash {
 	return p.ProposalBlock.Header().Id()
+}
+
+func (p Proposal) BlockHeightId() BlockHeightId {
+	return p.ProposalBlock.Header().HeightId
 }

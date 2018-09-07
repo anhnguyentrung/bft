@@ -3,19 +3,12 @@ package types
 import (
 	"time"
 	"bft/crypto"
-	"strconv"
-	"encoding/hex"
+	"bytes"
 )
 
 type BlockHeightId struct {
 	Height uint64
 	Id Hash
-}
-
-func (blockHeightId BlockHeightId) String() string {
-	h := strconv.FormatUint(blockHeightId.Height, 10)
-	id := hex.EncodeToString(blockHeightId.Id[:])
-	return h + id
 }
 
 func (blockHeightId BlockHeightId) IsValid() bool {
@@ -24,6 +17,10 @@ func (blockHeightId BlockHeightId) IsValid() bool {
 	}
 	emptyHash := Hash{}
 	return !blockHeightId.Id.Equals(emptyHash)
+}
+
+func (blockHeightId BlockHeightId) Equals(target BlockHeightId) bool {
+	return blockHeightId.Height == target.Height && bytes.Equal(blockHeightId.Id[:], target.Id[:])
 }
 
 type BlockHeader struct {
