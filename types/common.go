@@ -19,4 +19,3 @@ type KeyPair struct {
 	PrivateKey crypto.PrivateKey
 	PublicKey crypto.PublicKey
 }
-type Signfunc func (digest []byte) (crypto.Signature, error)

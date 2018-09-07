@@ -9,7 +9,6 @@ import (
 	"context"
 	"github.com/libp2p/go-libp2p-net"
 	"log"
-	"bufio"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/libp2p/go-libp2p-protocol"
 	"github.com/libp2p/go-libp2p-peer"
@@ -18,14 +17,17 @@ import (
 	"io/ioutil"
 	"strconv"
 	"bft/consensus"
-	types "bft/types"
+	"bft/types"
+	"sync"
 )
 
 type NetManager struct {
+	mutex sync.Mutex
 	host       		host.Host
 	ipAddress  		string
 	listenPort 		int
 	targets    		[]string
+	connections 	map[string]*Connection
 	keyPair			types.KeyPair
 	address			string
 	consensusManager *consensus.ConsensusManager
@@ -36,17 +38,18 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 		ipAddress:			ipAddress,
 		listenPort:			listenPort,
 		targets:			targets,
+		connections:		make(map[string]*Connection),
 	}
 	//TODO: get initial validators
-	validators := types.Validators{}
-	enDecoder := types.EnDecoder{
-		MarshalBinary,
-		UnmarshalBinary,
-	}
-	//TODO: load key pair from wallet
-	signer := netManager.keyPair.PrivateKey.Sign
-	address := netManager.keyPair.PublicKey.Address()
-	netManager.consensusManager = consensus.NewConsensusManager(enDecoder, signer, validators, address)
+	//validators := types.Validators{}
+	//enDecoder := types.EnDecoder{
+	//	MarshalBinary,
+	//	UnmarshalBinary,
+	//}
+	////TODO: load key pair from wallet
+	//signer := netManager.keyPair.PrivateKey.Sign
+	//address := netManager.keyPair.PublicKey.Address()
+	//netManager.consensusManager = consensus.NewConsensusManager(enDecoder, signer, validators, address)
 	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
 		return nil
@@ -85,44 +88,18 @@ func (nm *NetManager) addPeers(targets []string) {
 }
 
 func (nm *NetManager) handleStream(s net.Stream) {
-	rw := bufio.NewReadWriter(bufio.NewReader(s), bufio.NewWriter(s))
-	go nm.readData(rw)
+	conn := newConnection(s, nm.onReceive, nm.removeConnection)
+	log.Println("connected to %s", conn.RemotePeerId())
+	nm.addConnection(conn)
+	conn.Start()
 }
 
-func (nm *NetManager) readData(rw *bufio.ReadWriter) {
-	for {
-		str, err := rw.ReadString('\n')
-		if err != nil {
-			log.Println(err)
-			return
-		}
-		if str == "" {
-			return
-		}
-		if str != "\n" {
-			message := types.Message{
-				Header:		types.MessageHeader{},
-				Payload: 	make([]byte, 0),
-			}
-			err = UnmarshalBinaryMessage([]byte(str), &message)
-			if err != nil {
-				log.Fatal(err)
-			}
-			nm.OnReceive(message)
-		}
-	}
-}
-
-func (nm *NetManager) OnReceive(message types.Message) {
+func (nm *NetManager) onReceive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.VoteMessage, types.ProposalMessage:
 		nm.consensusManager.Receive(message)
 	}
-}
-
-func (nm *NetManager) writeData() {
-
 }
 
 func (nm *NetManager) addPeer(peerAddress string) {
@@ -148,6 +125,20 @@ func (nm *NetManager) addPeer(peerAddress string) {
 		log.Fatal(err)
 	}
 	nm.handleStream(stream)
+}
+
+func (nm *NetManager) addConnection(c *Connection) {
+	nm.mutex.Lock()
+	nm.connections[c.RemotePeerId()] = c
+	nm.mutex.Unlock()
+}
+
+func (nm *NetManager) removeConnection(c *Connection) {
+	nm.mutex.Lock()
+	log.Println("disconnected peer from address ", c.RemotePeerId())
+	c.Close()
+	delete(nm.connections, c.RemotePeerId())
+	nm.mutex.Unlock()
 }
 
 func loadIdentity(fileName string) (crypto.PrivKey, error) {

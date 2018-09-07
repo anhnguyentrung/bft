@@ -14,10 +14,10 @@ type ConsensusManager struct {
 	validatorManager *ValidatorManager
 	head *types.BlockHeader
 	enDecoder types.EnDecoder
-	signer types.Signfunc
+	signer crypto.SignFunc
 }
 
-func NewConsensusManager(enDecoder types.EnDecoder, signer types.Signfunc, validators types.Validators, address string) *ConsensusManager {
+func NewConsensusManager(enDecoder types.EnDecoder, signer crypto.SignFunc, validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.currentState = NewConsensusState()
 	cm.validatorManager = NewValidatorManager(validators, address)

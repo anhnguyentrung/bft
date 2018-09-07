@@ -12,13 +12,13 @@ type BlockHeightId struct {
 	Id Hash
 }
 
-func (blockHeightId *BlockHeightId) String() string {
+func (blockHeightId BlockHeightId) String() string {
 	h := strconv.FormatUint(blockHeightId.Height, 10)
 	id := hex.EncodeToString(blockHeightId.Id[:])
 	return h + id
 }
 
-func (blockHeightId *BlockHeightId) IsValid() bool {
+func (blockHeightId BlockHeightId) IsValid() bool {
 	if blockHeightId.Height == 0 {
 		return false
 	}
@@ -33,11 +33,11 @@ type BlockHeader struct {
 	Timestamp time.Time
 }
 
-func (blockHeader *BlockHeader) Height() uint64 {
+func (blockHeader BlockHeader) Height() uint64 {
 	return blockHeader.Height()
 }
 
-func (blockHeader *BlockHeader) Id() Hash {
+func (blockHeader BlockHeader) Id() Hash {
 	return blockHeader.Id()
 }
 

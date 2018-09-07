@@ -7,6 +7,8 @@ import (
 	"fmt"
 )
 
+type SignFunc func (digest []byte) (Signature, error)
+
 type Signature struct {
 	Data []byte
 }
