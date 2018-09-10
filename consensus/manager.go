@@ -132,9 +132,16 @@ func (cm *ConsensusManager) canEnterPrepared() bool {
 func (cm *ConsensusManager) enterPrePrepared(proposal types.Proposal) {
 	currentState := cm.currentState
 	if currentState.stateType == NewRound {
-		currentState.setProposal(proposal)
-		currentState.setSate(PrePrepared)
-		cm.broadCast(types.Prepare)
+		if currentState.isLocked() {
+			if currentState.proposal.BlockHeightId().Equals(currentState.lockedHeightId) {
+				currentState.setSate(Prepared)
+				cm.broadCast(types.Commit)
+			}
+		} else {
+			currentState.setProposal(proposal)
+			currentState.setSate(PrePrepared)
+			cm.broadCast(types.Prepare)
+		}
 	}
 }
 

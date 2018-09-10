@@ -50,7 +50,7 @@ func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {
 		return false
 	}
 	// is prepare from a valid validator?
-	if index, _ := cm.validatorManager.getByAddress(vote.Voter.Address); index == -1 {
+	if index, _ := cm.validatorSet.GetByAddress(vote.Address); index == -1 {
 		log.Println("Don't accept prepare message from a unknown validator")
 		return false
 	}
