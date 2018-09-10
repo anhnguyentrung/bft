@@ -116,6 +116,10 @@ func (cm *ConsensusManager) onCommit(vote types.Vote) {
 }
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
+	if !cm.verifyRoundChange(vote) {
+		return
+	}
+	cm.currentState.applyRoundChange(vote, cm.validatorSet)
 
 }
 
@@ -126,7 +130,7 @@ func (cm *ConsensusManager) canEnterPrepared() bool {
 		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
 		return false
 	}
-	if currentState.voteStorage[types.Prepare].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
+	if currentState.prepareCommits[types.Prepare].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
 		return false
 	}
 	return true
@@ -139,7 +143,7 @@ func (cm *ConsensusManager) canEnterCommitted() bool {
 		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
 		return false
 	}
-	if currentState.voteStorage[types.Commit].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
+	if currentState.prepareCommits[types.Commit].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
 		return false
 	}
 	return true

@@ -82,3 +82,12 @@ func (cm *ConsensusManager) verifyCommit(vote types.Vote) bool {
 	}
 	return true
 }
+
+func (cm *ConsensusManager) verifyRoundChange(vote types.Vote) bool {
+	if vote.View.Height > cm.currentState.view.Height {
+		return false
+	} else if vote.View.Compare(cm.currentState.view) < 0 {
+		return false
+	}
+	return true
+}

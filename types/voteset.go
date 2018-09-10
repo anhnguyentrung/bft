@@ -18,11 +18,11 @@ type VoteSet struct {
 	mutex sync.RWMutex
 	view View
 	voteType VoteType
-	validatorSet ValidatorSet
+	validatorSet *ValidatorSet
 	votes map[string]Vote
 }
 
-func NewVoteSet(view View, voteType VoteType, validatorSet ValidatorSet) *VoteSet {
+func NewVoteSet(view View, voteType VoteType, validatorSet *ValidatorSet) *VoteSet {
 	return &VoteSet{
 		view:view,
 		validatorSet:validatorSet,
