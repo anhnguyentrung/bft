@@ -3,6 +3,7 @@ package consensus
 import (
 	"sync"
 	"bft/types"
+	"log"
 )
 
 type ConsensusStateType uint8
@@ -16,6 +17,25 @@ const (
 	RoundChange
 )
 
+func (cst ConsensusStateType) String() string {
+	switch cst {
+	case NewRound:
+		return "new round"
+	case PrePrepared:
+		return "pre-prepared"
+	case Prepared:
+		return "prepared"
+	case Committed:
+		return "committed"
+	case FinalCommitted:
+		return "final commited"
+	case RoundChange:
+		return "round change"
+	default:
+		return ""
+	}
+}
+
 type ConsensusState struct {
 	rwMutex sync.RWMutex
 	stateType ConsensusStateType
@@ -27,7 +47,6 @@ type ConsensusState struct {
 
 func NewConsensusState(view types.View, validatorSet types.ValidatorSet) *ConsensusState {
 	cs := &ConsensusState{}
-	cs.stateType = NewRound
 	cs.view = view
 	cs.voteStorage = make(map[types.VoteType]*types.VoteSet, 0)
 	voteTypes := []types.VoteType{types.Prepare, types.Commit, types.RoundChange}
@@ -52,26 +71,10 @@ func (cs *ConsensusState) setSate(state ConsensusStateType) {
 	//TODO: process pending requests or backlogs
 }
 
-func (cs *ConsensusState) enterPrePrepared(proposal types.Proposal) {
-	if cs.stateType == NewRound {
-		cs.setProposal(proposal)
-		cs.setSate(PrePrepared)
-	}
-}
-
-func (cs *ConsensusState) enterPrepared() {
-	// lock proposal block
-	cs.lock()
-	cs.setSate(PrePrepared)
-}
-
 func (cs *ConsensusState) applyVote(vote types.Vote) {
-	cs.voteStorage[vote.Type][vote.BlockId.String()] = append(cs.voteStorage[vote.Type][vote.BlockId.String()], vote)
-}
-
-// check whether the validator received +2/3 prepare
-func (cs *ConsensusState) canEnterPrepared() bool {
-
+	if err := cs.voteStorage[vote.Type].AddVote(vote); err != nil {
+		log.Println(err)
+	}
 }
 
 func (cs *ConsensusState) lock() {

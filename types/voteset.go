@@ -15,7 +15,7 @@ var (
 )
 
 type VoteSet struct {
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	view View
 	voteType VoteType
 	validatorSet ValidatorSet
@@ -69,4 +69,10 @@ func (voteSet *VoteSet) verifyVote(vote Vote) error {
 		return errInvalidSignature
 	}
 	return nil
+}
+
+func (voteSet *VoteSet) Size() int {
+	voteSet.mutex.RLock()
+	defer voteSet.mutex.RUnlock()
+	return len(voteSet.votes)
 }

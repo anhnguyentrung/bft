@@ -6,6 +6,7 @@ import (
 	"log"
 	"crypto/sha256"
 	"bft/crypto"
+	"math"
 )
 
 type BroadcastFunc func(message types.Message)
@@ -22,7 +23,6 @@ type ConsensusManager struct {
 
 func NewConsensusManager(validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
-	cm.currentState = NewConsensusState()
 	cm.validatorSet = types.NewValidatorSet(validators, address)
 	return cm
 }
@@ -37,30 +37,6 @@ func (cm *ConsensusManager) SetSigner(signer crypto.SignFunc) {
 
 func (cm *ConsensusManager) SetBroadcaster(broadcaster BroadcastFunc) {
 	cm.broadcaster = broadcaster
-}
-
-func (cm *ConsensusManager) getVotes(blockId types.Hash, voteType types.VoteType) []types.Vote {
-	return cm.currentState.voteStorage[voteType][blockId.String()]
-}
-
-func (cm *ConsensusManager) addVote(vote types.Vote, blockId types.Hash, voteType types.VoteType) {
-	cm.mutex.Lock()
-	if _, ok := cm.currentState.voteStorage[voteType][blockId.String()]; !ok {
-		cm.currentState.voteStorage[voteType][blockId.String()] = types.Votes{}
-	}
-	cm.currentState.voteStorage[voteType][blockId.String()] = append(cm.currentState.voteStorage[voteType][blockId.String()], vote)
-	cm.mutex.Unlock()
-}
-
-func (cm *ConsensusManager) removeVotes(blockId types.Hash) {
-	cm.mutex.Lock()
-	voteTypes := []types.VoteType{types.Prepare, types.Commit, types.RoundChange}
-	for _, voteType := range voteTypes {
-		if _, ok := cm.currentState.voteStorage[voteType][blockId.String()]; ok {
-			delete(cm.currentState.voteStorage[voteType], blockId.String())
-		}
-	}
-	cm.mutex.Unlock()
 }
 
 func (cm *ConsensusManager) Receive(message types.Message) {
@@ -113,7 +89,7 @@ func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
 		return
 	}
 	//TODO: handle the future block
-	cm.currentState.enterPrePrepared(proposal)
+	cm.enterPrePrepared(proposal)
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
@@ -124,10 +100,12 @@ func (cm *ConsensusManager) onPrepare(vote types.Vote) {
 	proposalHeightId := cm.currentState.getProposalHeightId()
 	// if the validator have a locked block, she should broadcast COMMIT on the locked block and enter prepared
 	if cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.getLockedHeightId()) {
-		cm.currentState.enterPrepared()
+		cm.enterPrepared()
 	}
 	// the validator received +2/3 prepare
-	if
+	if cm.canEnterPrepared() {
+		cm.enterPrepared()
+	}
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
@@ -138,12 +116,43 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 
 }
 
+// check whether the validator received +2/3 prepare
+func (cm *ConsensusManager) canEnterPrepared() bool {
+	currentState := cm.currentState
+	if currentState.stateType >= Prepared {
+		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
+		return false
+	}
+	if currentState.voteStorage[types.Prepare].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
+		return false
+	}
+	return true
+}
+
+func (cm *ConsensusManager) enterPrePrepared(proposal types.Proposal) {
+	currentState := cm.currentState
+	if currentState.stateType == NewRound {
+		currentState.setProposal(proposal)
+		currentState.setSate(PrePrepared)
+		cm.broadCast(types.Prepare)
+	}
+}
+
+func (cm *ConsensusManager) enterPrepared() {
+	currentState := cm.currentState
+	// lock proposal block
+	currentState.lock()
+	currentState.setSate(Prepared)
+	cm.broadCast(types.Commit)
+}
+
 func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 	voter := cm.validatorSet.Self()
 	view := cm.currentState.proposal.View
 	blockId := cm.currentState.proposal.BlockId()
 	vote := types.Vote {
-		voter,
+		types.Hash{},
+		voter.Address,
 		voteType,
 		view,
 		blockId,
@@ -155,6 +164,7 @@ func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 		return
 	}
 	hash := sha256.Sum256(buf)
+	vote.Hash = hash
 	sig, err := cm.signer(hash[:])
 	if err != nil {
 		log.Println(err)
