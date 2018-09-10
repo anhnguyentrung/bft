@@ -109,7 +109,10 @@ func (cm *ConsensusManager) onPrepare(vote types.Vote) {
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
-
+	if !cm.verifyCommit(vote) {
+		return
+	}
+	cm.currentState.applyVote(vote)
 }
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
@@ -124,6 +127,19 @@ func (cm *ConsensusManager) canEnterPrepared() bool {
 		return false
 	}
 	if currentState.voteStorage[types.Prepare].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
+		return false
+	}
+	return true
+}
+
+// check whether the validator received +2/3 commit
+func (cm *ConsensusManager) canEnterCommitted() bool {
+	currentState := cm.currentState
+	if currentState.stateType >= Committed {
+		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
+		return false
+	}
+	if currentState.voteStorage[types.Commit].Size() < int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 {
 		return false
 	}
 	return true
@@ -151,6 +167,14 @@ func (cm *ConsensusManager) enterPrepared() {
 	currentState.lock()
 	currentState.setSate(Prepared)
 	cm.broadCast(types.Commit)
+}
+
+func (cm *ConsensusManager) enterCommitted() {
+	currentState := cm.currentState
+	// lock proposal block
+	currentState.lock()
+	currentState.setSate(Committed)
+	//TODO: Commit proposal block
 }
 
 func (cm *ConsensusManager) broadCast(voteType types.VoteType) {

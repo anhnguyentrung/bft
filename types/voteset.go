@@ -30,12 +30,19 @@ func NewVoteSet(view View, voteType VoteType, validatorSet ValidatorSet) *VoteSe
 	}
 }
 
-func (voteSet *VoteSet) AddVote(vote Vote) error {
+func (voteSet *VoteSet) AddVote(vote Vote, verify bool) error {
 	voteSet.mutex.Lock()
 	defer voteSet.mutex.Unlock()
-	err := voteSet.verifyVote(vote)
-	if err != nil {
-		return err
+	if verify {
+		err := voteSet.verifyVote(vote)
+		if err != nil {
+			return err
+		}
+	}
+	// check duplicate vote
+	if _, ok := voteSet.votes[vote.Address]; ok {
+		log.Printf("voter %s sent duplicate vote", vote.Address)
+		return errDuplicateVote
 	}
 	voteSet.votes[vote.Address] = vote
 	return nil
@@ -57,11 +64,6 @@ func (voteSet *VoteSet) verifyVote(vote Vote) error {
 	if index == -1 {
 		log.Printf("invalid voter address: %s", vote.Address)
 		return errInvalidVoter
-	}
-	// check duplicate vote
-	if _, ok := voteSet.votes[vote.Address]; ok {
-		log.Printf("voter %s sent duplicate vote", vote.Address)
-		return errDuplicateVote
 	}
 	// check signature
 	if !vote.Signature.Verify(voter.PublicKey, vote.Hash[:]) {

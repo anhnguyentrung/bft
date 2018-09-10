@@ -49,11 +49,33 @@ func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {
 	if cm.currentState.stateType == NewRound {
 		return false
 	}
-	// is prepare from a valid validator?
-	if index, _ := cm.validatorSet.GetByAddress(vote.Address); index == -1 {
-		log.Println("Don't accept prepare message from a unknown validator")
+	//// is prepare from a valid validator?
+	//if index, _ := cm.validatorSet.GetByAddress(vote.Address); index == -1 {
+	//	log.Println("Don't accept prepare message from a unknown validator")
+	//	return false
+	//}
+	// verify block id
+	if !vote.BlockId.Equals(cm.currentState.proposal.BlockId()) {
 		return false
 	}
+	return true
+}
+
+func (cm *ConsensusManager) verifyCommit(vote types.Vote) bool {
+	// check commit's round and height
+	if vote.View.Compare(cm.currentState.view) != 0 {
+		log.Println("commit's round and height are invalid")
+		return false
+	}
+	// check current state
+	if cm.currentState.stateType == NewRound {
+		return false
+	}
+	//// is commit from a valid validator?
+	//if index, _ := cm.validatorSet.GetByAddress(vote.Address); index == -1 {
+	//	log.Println("Don't accept commit message from a unknown validator")
+	//	return false
+	//}
 	// verify block id
 	if !vote.BlockId.Equals(cm.currentState.proposal.BlockId()) {
 		return false

@@ -72,8 +72,12 @@ func (cs *ConsensusState) setSate(state ConsensusStateType) {
 }
 
 func (cs *ConsensusState) applyVote(vote types.Vote) {
-	if err := cs.voteStorage[vote.Type].AddVote(vote); err != nil {
+	if err := cs.voteStorage[vote.Type].AddVote(vote, true); err != nil {
 		log.Println(err)
+		return
+	}
+	if vote.Type == types.Commit {
+		cs.voteStorage[types.Prepare].AddVote(vote, false)
 	}
 }
 
