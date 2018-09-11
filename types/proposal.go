@@ -33,17 +33,17 @@ type Proposal struct {
 	ProposalBlock 	SignedBlock
 }
 
-func (p Proposal) DataIgnoredSignature() Proposal {
-	return Proposal{
+func (p *Proposal) DataIgnoredSignature() *Proposal {
+	return &Proposal{
 		p.View,
 		p.ProposalBlock,
 	}
 }
 
-func (p Proposal) BlockId() Hash {
+func (p *Proposal) BlockId() Hash {
 	return p.ProposalBlock.Header().Id()
 }
 
-func (p Proposal) BlockHeightId() BlockHeightId {
+func (p *Proposal) BlockHeightId() BlockHeightId {
 	return p.ProposalBlock.Header().HeightId
 }

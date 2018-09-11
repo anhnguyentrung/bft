@@ -55,7 +55,7 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 		if err != nil {
 			log.Fatal(err)
 		}
-		cm.onProposal(proposal)
+		cm.onProposal(&proposal)
 	}
 }
 
@@ -70,7 +70,7 @@ func (cm *ConsensusManager) onVote(vote types.Vote) {
 	}
 }
 
-func (cm *ConsensusManager) onProposal(proposal types.Proposal) {
+func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 	// check proposal's round and height
 	if result := proposal.View.Compare(cm.currentState.view); result != 0 {
 		// if proposal is an existing block, broadcast commit
@@ -120,8 +120,21 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 		return
 	}
 	cm.currentState.applyRoundChange(vote, cm.validatorSet)
-
+	if cm.shouldChangeRound(vote.View.Round) {
+		cm.changeRound(vote.View.Round)
+	}
 }
+
+func (cm *ConsensusManager) shouldChangeRound(round uint64) bool {
+	currentState := cm.currentState
+	voteCount := currentState.roundChanges[round].Size()
+	if currentState.stateType == RoundChange && voteCount == int(math.Floor(float64(cm.validatorSet.Size())/3)) + 1 {
+		if currentState.view.Round < round {
+			return true
+		}
+	}
+	return false
+ }
 
 // check whether the validator received +2/3 prepare
 func (cm *ConsensusManager) canEnterPrepared() bool {
@@ -149,7 +162,7 @@ func (cm *ConsensusManager) canEnterCommitted() bool {
 	return true
 }
 
-func (cm *ConsensusManager) enterPrePrepared(proposal types.Proposal) {
+func (cm *ConsensusManager) enterPrePrepared(proposal *types.Proposal) {
 	currentState := cm.currentState
 	if currentState.stateType == NewRound {
 		if currentState.isLocked() {
@@ -181,10 +194,20 @@ func (cm *ConsensusManager) enterCommitted() {
 	//TODO: Commit proposal block
 }
 
+func (cm *ConsensusManager) changeRound(round uint64) {
+	cm.currentState.setSate(RoundChange)
+	cm.currentState.changeRound(round)
+
+	cm.broadCast(types.RoundChange)
+}
+
 func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 	voter := cm.validatorSet.Self()
 	view := cm.currentState.proposal.View
-	blockId := cm.currentState.proposal.BlockId()
+	blockId := types.Hash{}
+	if voteType != types.RoundChange {
+		blockId = cm.currentState.proposal.BlockId()
+	}
 	vote := types.Vote {
 		types.Hash{},
 		voter.Address,

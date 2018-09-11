@@ -41,12 +41,12 @@ type ConsensusState struct {
 	stateType ConsensusStateType
 	view types.View
 	lockedHeightId types.BlockHeightId
-	proposal types.Proposal
+	proposal *types.Proposal
 	prepareCommits map[types.VoteType]*types.VoteSet // include prepare, commit
 	roundChanges map[uint64]*types.VoteSet
 }
 
-func NewConsensusState(view types.View, validatorSet types.ValidatorSet) *ConsensusState {
+func NewConsensusState(view types.View, validatorSet *types.ValidatorSet) *ConsensusState {
 	cs := &ConsensusState{}
 	cs.view = view
 	cs.prepareCommits = make(map[types.VoteType]*types.VoteSet, 0)
@@ -58,7 +58,7 @@ func NewConsensusState(view types.View, validatorSet types.ValidatorSet) *Consen
 	return cs
 }
 
-func (cs *ConsensusState) setProposal(proposal types.Proposal) {
+func (cs *ConsensusState) setProposal(proposal *types.Proposal) {
 	cs.rwMutex.Lock()
 	defer cs.rwMutex.Unlock()
 	cs.proposal = proposal
@@ -119,4 +119,22 @@ func (cs *ConsensusState) getProposalHeightId() types.BlockHeightId {
 	cs.rwMutex.RLock()
 	defer cs.rwMutex.RUnlock()
 	return cs.proposal.BlockHeightId()
+}
+
+func (cs *ConsensusState) changeRound(round uint64) {
+	cs.view.Round = round
+	if !cs.isLocked() {
+		cs.proposal = nil
+	}
+	cs.clearSmallerRound()
+}
+
+func (cs *ConsensusState) clearSmallerRound() {
+	cs.rwMutex.Lock()
+	defer cs.rwMutex.Unlock()
+	for round, _ := range cs.roundChanges {
+		if round < cs.view.Round {
+			delete(cs.roundChanges, round)
+		}
+	}
 }

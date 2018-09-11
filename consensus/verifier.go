@@ -6,7 +6,7 @@ import (
 	"crypto/sha256"
 )
 
-func (cm *ConsensusManager) verifyProposal(proposal types.Proposal) bool {
+func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 	// Does blockchain have a head
 	if cm.head == nil {
 		log.Println("blockchain hasn't a head")
