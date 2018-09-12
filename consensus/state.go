@@ -42,6 +42,7 @@ type ConsensusState struct {
 	view types.View
 	lockedHeightId types.BlockHeightId
 	proposal *types.Proposal
+	pending *types.Proposal
 	prepareCommits map[types.VoteType]*types.VoteSet // include prepare, commit
 	roundChanges map[uint64]*types.VoteSet
 }
@@ -121,7 +122,7 @@ func (cs *ConsensusState) getProposalHeightId() types.BlockHeightId {
 	return cs.proposal.BlockHeightId()
 }
 
-func (cs *ConsensusState) changeRound(round uint64) {
+func (cs *ConsensusState) updateRound(round uint64) {
 	cs.view.Round = round
 	if !cs.isLocked() {
 		cs.proposal = nil

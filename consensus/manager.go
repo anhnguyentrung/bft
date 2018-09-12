@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"bft/crypto"
 	"math"
+	"time"
 )
 
 type BroadcastFunc func(message types.Message)
@@ -19,6 +20,7 @@ type ConsensusManager struct {
 	enDecoder types.EnDecoder
 	signer crypto.SignFunc
 	broadcaster BroadcastFunc
+	roundChangeTimer *time.Timer
 }
 
 func NewConsensusManager(validators types.Validators, address string) *ConsensusManager {
@@ -134,7 +136,72 @@ func (cm *ConsensusManager) shouldChangeRound(round uint64) bool {
 		}
 	}
 	return false
- }
+}
+
+func (cm *ConsensusManager) shouldStartNewRound(round uint64) bool {
+	currentState := cm.currentState
+	stateType := currentState.stateType
+	currentRound := currentState.view.Round
+	voteCount := currentState.roundChanges[round].Size()
+	if voteCount == int(math.Floor(float64(cm.validatorSet.Size()*2)/3)) + 1 && (stateType == RoundChange || currentRound < round) {
+		return true
+	}
+	return false
+}
+
+func (cm *ConsensusManager) isProposer() bool {
+	if cm.validatorSet == nil || cm.validatorSet.Size() == 0 {
+		log.Println("validator set should not be nil or empty")
+		return false
+	}
+	self := cm.validatorSet.Self()
+	return cm.validatorSet.IsProposer(self)
+}
+
+func (cm *ConsensusManager) startNewRound(round uint64) {
+	if cm.head == nil {
+		log.Fatal("blockchain must have a head")
+	}
+	newView := types.View{
+		0,
+		cm.head.Height() + 1,
+	}
+	if cm.currentState == nil {
+		log.Println("initial round")
+	} else if cm.head.Height() >= cm.currentState.view.Height {
+		log.Println("catch up latest proposal")
+	} else if cm.head.Height() == cm.currentState.view.Height - 1 {
+		if round == 0 {
+			return
+		}
+		if round < cm.currentState.view.Round {
+			log.Println("new round should be greater than current round")
+			return
+		}
+		newView.Round = round
+	} else {
+		log.Println("new height should be greater than current height")
+	}
+	// delete all old votes
+	for k, _ := range cm.currentState.roundChanges {
+		delete(cm.currentState.roundChanges, k)
+	}
+	cm.changeRound(round)
+	cm.validatorSet.CalculateProposer(round)
+	cm.currentState.setSate(NewRound)
+	if newView.Round != 0 && cm.isProposer() {
+		if cm.currentState.isLocked() {
+			if cm.currentState.proposal != nil {
+				cm.sendProposal(*cm.currentState.proposal)
+			}
+		} else {
+			if cm.currentState.pending != nil {
+				cm.sendProposal(*cm.currentState.pending)
+			}
+		}
+	}
+	cm.newRoundChangeTimer()
+}
 
 // check whether the validator received +2/3 prepare
 func (cm *ConsensusManager) canEnterPrepared() bool {
@@ -196,9 +263,20 @@ func (cm *ConsensusManager) enterCommitted() {
 
 func (cm *ConsensusManager) changeRound(round uint64) {
 	cm.currentState.setSate(RoundChange)
-	cm.currentState.changeRound(round)
-
+	cm.currentState.updateRound(round)
+	cm.newRoundChangeTimer()
 	cm.broadCast(types.RoundChange)
+}
+
+func (cm *ConsensusManager) stopRoundChangeTimer() {
+	if cm.roundChangeTimer != nil {
+		cm.roundChangeTimer.Stop()
+	}
+}
+
+func (cm *ConsensusManager) newRoundChangeTimer() {
+	cm.stopRoundChangeTimer()
+
 }
 
 func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
@@ -230,10 +308,31 @@ func (cm *ConsensusManager) broadCast(voteType types.VoteType) {
 	}
 	vote.Signature = sig
 	payload, err := cm.enDecoder.Encode(vote)
+	if err != nil {
+		log.Println(err)
+		return
+	}
 	length := uint32(len(payload))
 	message := types.Message{
 		types.MessageHeader{
 			types.VoteMessage,
+			length,
+		},
+		payload,
+	}
+	cm.broadcaster(message)
+}
+
+func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
+	payload, err := cm.enDecoder.Encode(proposal)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	length := uint32(len(payload))
+	message := types.Message{
+		types.MessageHeader{
+			types.ProposalMessage,
 			length,
 		},
 		payload,
