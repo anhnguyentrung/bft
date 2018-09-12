@@ -4,6 +4,7 @@ import (
 	"sync"
 	"bft/types"
 	"log"
+	"math"
 )
 
 type ConsensusStateType uint8
@@ -42,7 +43,7 @@ type ConsensusState struct {
 	view types.View
 	lockedHeightId types.BlockHeightId
 	proposal *types.Proposal
-	pending *types.Proposal
+	pendingProposal *types.Proposal
 	prepareCommits map[types.VoteType]*types.VoteSet // include prepare, commit
 	roundChanges map[uint64]*types.VoteSet
 }
@@ -57,6 +58,18 @@ func NewConsensusState(view types.View, validatorSet *types.ValidatorSet) *Conse
 	}
 	cs.roundChanges = make(map[uint64]*types.VoteSet, 0)
 	return cs
+}
+
+func (cs *ConsensusState) round() uint64 {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
+	return cs.view.Round
+}
+
+func (cs *ConsensusState) height() uint64 {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
+	return cs.view.Height
 }
 
 func (cs *ConsensusState) setProposal(proposal *types.Proposal) {
@@ -138,4 +151,17 @@ func (cs *ConsensusState) clearSmallerRound() {
 			delete(cs.roundChanges, round)
 		}
 	}
+}
+
+func (cs *ConsensusState) getMaxRound(threshold int) uint64 {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
+	maxRound := uint64(math.MaxUint64)
+	for round, voteSet := range cs.roundChanges {
+		voteNum := voteSet.Size()
+		if voteNum >= threshold && maxRound < uint64(voteNum) {
+			maxRound = round
+		}
+	}
+	return maxRound
 }
