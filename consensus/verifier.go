@@ -3,10 +3,12 @@ package consensus
 import (
 	"log"
 	"bft/types"
-	"crypto/sha256"
 )
 
 func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
+	if proposal == nil {
+		return false
+	}
 	// Does blockchain have a head
 	if cm.head == nil {
 		log.Println("blockchain hasn't a head")
@@ -19,20 +21,15 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 		return false
 	}
 	// Does block proposal's previous id equal head's id
-	if !blockHeader.PreviousId.Equals(cm.head.Id()) {
+	if !blockHeader.PreviousId.Equals(cm.head.Id()) || blockHeader.Height() != cm.head.Height() {
 		log.Println("unlinkable block")
 		return false
 	}
-	publicKey := proposal.ProposalBlock.Header().Proposer.PublicKey
+	publicKey := proposal.Proposer().PublicKey
 	// Is block signed by proposer
-	blockHeaderBuf, err := cm.enDecoder.Encode(blockHeader)
-	if err != nil {
-		log.Println(err)
-		return false
-	}
-	blockHash := sha256.Sum256(blockHeaderBuf)
+	blockId := proposal.BlockId()
 	signature := proposal.ProposalBlock.Signature()
-	if !signature.Verify(publicKey, blockHash[:]) {
+	if !signature.Verify(publicKey, blockId[:]) {
 		log.Println("block's signature is wrong")
 		return false
 	}

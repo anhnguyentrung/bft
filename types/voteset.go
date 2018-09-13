@@ -73,6 +73,12 @@ func (voteSet *VoteSet) verifyVote(vote Vote) error {
 	return nil
 }
 
+func (voteSet *VoteSet) Votes() map[string]Vote {
+	voteSet.mutex.RLock()
+	defer voteSet.mutex.RUnlock()
+	return voteSet.votes
+}
+
 func (voteSet *VoteSet) Size() int {
 	voteSet.mutex.RLock()
 	defer voteSet.mutex.RUnlock()

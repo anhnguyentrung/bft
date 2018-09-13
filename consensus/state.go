@@ -165,3 +165,15 @@ func (cs *ConsensusState) getMaxRound(threshold int) uint64 {
 	}
 	return maxRound
 }
+
+func (cs *ConsensusState) prepares() *types.VoteSet {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
+	return cs.prepareCommits[types.Prepare]
+}
+
+func (cs *ConsensusState) commits() *types.VoteSet {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
+	return cs.prepareCommits[types.Commit]
+}

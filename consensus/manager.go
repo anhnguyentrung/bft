@@ -81,8 +81,9 @@ func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 		if result < 0 {
 			//TODO: handle the existing block
 		}
+		return
 	}
-	proposer := proposal.ProposalBlock.Header().Proposer
+	proposer := proposal.Proposer()
 	// Is proposal from valid proposer
 	if !cm.validatorSet.IsProposer(proposer) {
 		log.Println("Don't accept a proposal from unknown proposer")
@@ -90,10 +91,30 @@ func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 	}
 	// check proposal
 	if !cm.verifyProposal(proposal) {
+		//TODO: handle the future block
+		cm.changeRound(cm.currentState.round() + 1)
 		return
 	}
-	//TODO: handle the future block
 	cm.enterPrePrepared(proposal)
+}
+
+func (cm *ConsensusManager) enterPrePrepared(proposal *types.Proposal) {
+	currentState := cm.currentState
+	if currentState.stateType == NewRound {
+		if currentState.isLocked() {
+			if currentState.proposal.BlockHeightId().Equals(currentState.lockedHeightId) {
+				currentState.setSate(Prepared)
+				cm.sendVote(types.Commit)
+			} else {
+				// should go to next round
+				cm.changeRound(cm.currentState.round() + 1)
+			}
+		} else {
+			currentState.setProposal(proposal)
+			currentState.setSate(PrePrepared)
+			cm.sendVote(types.Prepare)
+		}
+	}
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
@@ -103,13 +124,31 @@ func (cm *ConsensusManager) onPrepare(vote types.Vote) {
 	cm.currentState.applyVote(vote)
 	proposalHeightId := cm.currentState.getProposalHeightId()
 	// if the validator have a locked block, she should broadcast COMMIT on the locked block and enter prepared
-	if cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.getLockedHeightId()) {
+	// or the validator received +2/3 prepare
+	if (cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.getLockedHeightId())) || cm.canEnterPrepared() {
 		cm.enterPrepared()
 	}
-	// the validator received +2/3 prepare
-	if cm.canEnterPrepared() {
-		cm.enterPrepared()
+}
+
+func (cm *ConsensusManager) enterPrepared() {
+	currentState := cm.currentState
+	// lock proposal block
+	currentState.lock()
+	currentState.setSate(Prepared)
+	cm.sendVote(types.Commit)
+}
+
+// check whether the validator received +2/3 prepare
+func (cm *ConsensusManager) canEnterPrepared() bool {
+	currentState := cm.currentState
+	if currentState.stateType >= Prepared {
+		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
+		return false
 	}
+	if currentState.prepares().Size() < 2*cm.f + 1 {
+		return false
+	}
+	return true
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
@@ -117,6 +156,33 @@ func (cm *ConsensusManager) onCommit(vote types.Vote) {
 		return
 	}
 	cm.currentState.applyVote(vote)
+	if cm.canEnterCommitted() {
+		cm.enterCommitted()
+	}
+}
+
+// check whether the validator received +2/3 commit
+func (cm *ConsensusManager) canEnterCommitted() bool {
+	currentState := cm.currentState
+	if currentState.stateType >= Committed {
+		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
+		return false
+	}
+	if currentState.commits().Size() < 2*cm.f + 1 {
+		return false
+	}
+	return true
+}
+
+func (cm *ConsensusManager) enterCommitted() {
+	currentState := cm.currentState
+	// lock proposal block
+	currentState.lock()
+	currentState.setSate(Committed)
+	proposal := cm.currentState.proposal
+	if proposal != nil {
+		//TODO: Commit proposal block
+	}
 }
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
@@ -126,6 +192,10 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 	cm.currentState.applyRoundChange(vote, cm.validatorSet)
 	if cm.shouldChangeRound(vote.View.Round) {
 		cm.changeRound(vote.View.Round)
+		return
+	}
+	if cm.shouldStartNewRound(vote.View.Round) {
+		cm.startNewRound(vote.View.Round)
 	}
 }
 
@@ -203,64 +273,6 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 		}
 	}
 	cm.newRoundChangeTimer()
-}
-
-// check whether the validator received +2/3 prepare
-func (cm *ConsensusManager) canEnterPrepared() bool {
-	currentState := cm.currentState
-	if currentState.stateType >= Prepared {
-		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
-		return false
-	}
-	if currentState.prepareCommits[types.Prepare].Size() < 2*cm.f + 1 {
-		return false
-	}
-	return true
-}
-
-// check whether the validator received +2/3 commit
-func (cm *ConsensusManager) canEnterCommitted() bool {
-	currentState := cm.currentState
-	if currentState.stateType >= Committed {
-		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
-		return false
-	}
-	if currentState.prepareCommits[types.Commit].Size() < 2*cm.f + 1 {
-		return false
-	}
-	return true
-}
-
-func (cm *ConsensusManager) enterPrePrepared(proposal *types.Proposal) {
-	currentState := cm.currentState
-	if currentState.stateType == NewRound {
-		if currentState.isLocked() {
-			if currentState.proposal.BlockHeightId().Equals(currentState.lockedHeightId) {
-				currentState.setSate(Prepared)
-				cm.sendVote(types.Commit)
-			}
-		} else {
-			currentState.setProposal(proposal)
-			currentState.setSate(PrePrepared)
-			cm.sendVote(types.Prepare)
-		}
-	}
-}
-
-func (cm *ConsensusManager) enterPrepared() {
-	currentState := cm.currentState
-	// lock proposal block
-	currentState.lock()
-	currentState.setSate(Prepared)
-	cm.sendVote(types.Commit)
-}
-
-func (cm *ConsensusManager) enterCommitted() {
-	currentState := cm.currentState
-	// lock proposal block
-	currentState.lock()
-	currentState.setSate(Committed)
-	//TODO: Commit proposal block
 }
 
 func (cm *ConsensusManager) changeRound(round uint64) {

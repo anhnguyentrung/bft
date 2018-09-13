@@ -47,3 +47,7 @@ func (p *Proposal) BlockId() Hash {
 func (p *Proposal) BlockHeightId() BlockHeightId {
 	return p.ProposalBlock.Header().HeightId
 }
+
+func (p *Proposal) Proposer() Validator {
+	return p.ProposalBlock.Header().Proposer
+}

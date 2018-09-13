@@ -45,6 +45,7 @@ type SignedBlockHeader struct {
 
 type SignedBlock struct {
 	SignedHeader SignedBlockHeader
+	Commits []Vote
 }
 
 func (sb *SignedBlock) Header() BlockHeader{
