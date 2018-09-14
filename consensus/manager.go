@@ -92,7 +92,7 @@ func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 	// check proposal
 	if !cm.verifyProposal(proposal) {
 		//TODO: handle the future block
-		cm.changeRound(cm.currentState.round() + 1)
+		cm.sendRoundChange(cm.currentState.round() + 1)
 		return
 	}
 	cm.enterPrePrepared(proposal)
@@ -107,7 +107,7 @@ func (cm *ConsensusManager) enterPrePrepared(proposal *types.Proposal) {
 				cm.sendVote(types.Commit)
 			} else {
 				// should go to next round
-				cm.changeRound(cm.currentState.round() + 1)
+				cm.sendRoundChange(cm.currentState.round() + 1)
 			}
 		} else {
 			currentState.setProposal(proposal)
@@ -122,10 +122,10 @@ func (cm *ConsensusManager) onPrepare(vote types.Vote) {
 		return
 	}
 	cm.currentState.applyVote(vote)
-	proposalHeightId := cm.currentState.getProposalHeightId()
+	proposalHeightId := cm.currentState.proposalHeightId()
 	// if the validator have a locked block, she should broadcast COMMIT on the locked block and enter prepared
 	// or the validator received +2/3 prepare
-	if (cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.getLockedHeightId())) || cm.canEnterPrepared() {
+	if (cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.lockedHeightId)) || cm.canEnterPrepared() {
 		cm.enterPrepared()
 	}
 }
@@ -191,7 +191,7 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 	}
 	cm.currentState.applyRoundChange(vote, cm.validatorSet)
 	if cm.shouldChangeRound(vote.View.Round) {
-		cm.changeRound(vote.View.Round)
+		cm.sendRoundChange(vote.View.Round)
 		return
 	}
 	if cm.shouldStartNewRound(vote.View.Round) {
@@ -240,8 +240,10 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 	}
 	if cm.currentState == nil {
 		log.Println("initial round")
+		cm.currentState = NewConsensusState(newView, cm.validatorSet)
 	} else if cm.head.Height() >= cm.currentState.height() {
 		log.Println("catch up latest proposal")
+		cm.currentState = NewConsensusState(newView, cm.validatorSet)
 	} else if cm.head.Height() == cm.currentState.height() - 1 {
 		if round == 0 {
 			return
@@ -258,7 +260,7 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 	for k, _ := range cm.currentState.roundChanges {
 		delete(cm.currentState.roundChanges, k)
 	}
-	cm.changeRound(round)
+	cm.currentState.updateView(newView)
 	cm.validatorSet.CalculateProposer(round)
 	cm.currentState.setSate(NewRound)
 	if newView.Round != 0 && cm.isProposer() {
@@ -275,11 +277,10 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 	cm.newRoundChangeTimer()
 }
 
-func (cm *ConsensusManager) changeRound(round uint64) {
+func (cm *ConsensusManager) changeView(view types.View) {
 	cm.currentState.setSate(RoundChange)
-	cm.currentState.updateRound(round)
+	cm.currentState.updateView(view)
 	cm.newRoundChangeTimer()
-	cm.sendVote(types.RoundChange)
 }
 
 func (cm *ConsensusManager) stopRoundChangeTimer() {
@@ -296,17 +297,17 @@ func (cm *ConsensusManager) newRoundChangeTimer() {
 
 func (cm *ConsensusManager) handleTimeout() {
 	if cm.currentState.stateType != RoundChange {
-		threshold := 2*cm.f + 1
+		threshold := cm.f + 1
 		maxRound := cm.currentState.getMaxRound(threshold)
 		if maxRound != math.MaxUint64 && maxRound > cm.currentState.round() {
-			cm.changeRound(maxRound)
+			cm.sendRoundChange(maxRound)
 			return
 		}
 	}
 	if cm.head != nil && cm.head.Height() >= cm.currentState.height() {
 		cm.startNewRound(0)
 	} else {
-		cm.changeRound(cm.currentState.round() + 1)
+		cm.sendRoundChange(cm.currentState.round() + 1)
 	}
 }
 
@@ -369,4 +370,13 @@ func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
 		payload,
 	}
 	cm.broadcaster(message)
+}
+
+func (cm *ConsensusManager) sendRoundChange(round uint64) {
+	newView := types.View{
+		round,
+		cm.currentState.height(),
+	}
+	cm.changeView(newView)
+	cm.sendVote(types.RoundChange)
 }

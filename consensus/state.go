@@ -61,26 +61,18 @@ func NewConsensusState(view types.View, validatorSet *types.ValidatorSet) *Conse
 }
 
 func (cs *ConsensusState) round() uint64 {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
 	return cs.view.Round
 }
 
 func (cs *ConsensusState) height() uint64 {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
 	return cs.view.Height
 }
 
 func (cs *ConsensusState) setProposal(proposal *types.Proposal) {
-	cs.rwMutex.Lock()
-	defer cs.rwMutex.Unlock()
 	cs.proposal = proposal
 }
 
 func (cs *ConsensusState) setSate(state ConsensusStateType) {
-	cs.rwMutex.Lock()
-	defer cs.rwMutex.Unlock()
 	if cs.stateType != state {
 		cs.stateType = state
 	}
@@ -106,46 +98,34 @@ func (cs *ConsensusState) applyRoundChange(vote types.Vote, validatorSet *types.
 	cs.roundChanges[round].AddVote(vote, true)
 }
 
+func (cs *ConsensusState) proposalHeightId() types.BlockHeightId {
+	return cs.proposal.BlockHeightId()
+}
+
 func (cs *ConsensusState) lock() {
-	cs.rwMutex.Lock()
-	defer cs.rwMutex.Unlock()
-	if cs.getProposalHeightId().IsValid() {
-		cs.lockedHeightId = cs.getProposalHeightId()
+	proposalHeightId := cs.proposalHeightId()
+	if proposalHeightId.IsValid() {
+		cs.lockedHeightId = proposalHeightId
 	}
 }
 
 func (cs *ConsensusState) isLocked() bool {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
 	if !cs.lockedHeightId.IsValid() {
 		return false
 	}
 	return true
 }
 
-func (cs *ConsensusState) getLockedHeightId() types.BlockHeightId {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
-	return cs.lockedHeightId
-}
-
-func (cs *ConsensusState) getProposalHeightId() types.BlockHeightId {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
-	return cs.proposal.BlockHeightId()
-}
-
-func (cs *ConsensusState) updateRound(round uint64) {
-	cs.view.Round = round
-	if !cs.isLocked() {
-		cs.proposal = nil
+func (cs *ConsensusState) updateView(view types.View) {
+	if cs.view.Compare(view) != 0 {
+		cs.view = view
+		if !cs.isLocked() {
+			cs.proposal = nil
+		}
 	}
-	cs.clearSmallerRound()
 }
 
 func (cs *ConsensusState) clearSmallerRound() {
-	cs.rwMutex.Lock()
-	defer cs.rwMutex.Unlock()
 	for round, _ := range cs.roundChanges {
 		if round < cs.view.Round {
 			delete(cs.roundChanges, round)
@@ -154,8 +134,6 @@ func (cs *ConsensusState) clearSmallerRound() {
 }
 
 func (cs *ConsensusState) getMaxRound(threshold int) uint64 {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
 	maxRound := uint64(math.MaxUint64)
 	for round, voteSet := range cs.roundChanges {
 		voteNum := voteSet.Size()
@@ -167,13 +145,9 @@ func (cs *ConsensusState) getMaxRound(threshold int) uint64 {
 }
 
 func (cs *ConsensusState) prepares() *types.VoteSet {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
 	return cs.prepareCommits[types.Prepare]
 }
 
 func (cs *ConsensusState) commits() *types.VoteSet {
-	cs.rwMutex.RLock()
-	defer cs.rwMutex.RUnlock()
 	return cs.prepareCommits[types.Commit]
 }
