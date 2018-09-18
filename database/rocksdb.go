@@ -93,7 +93,7 @@ func (rocksDB *RocksDB) Get(cfName string, key []byte) []byte {
 	return data
 }
 
-func (rocksDB *RocksDB) Put(cfName string, key []byte, value []byte) {
+func (rocksDB *RocksDB) Put(cfName string, key, value []byte) {
 	cfHandler := rocksDB.columnFamilyHandle(cfName)
 	if cfHandler == nil {
 		log.Fatalf("column family %s does not exist\n", cfName)
@@ -121,6 +121,49 @@ func (rocksDB *RocksDB) Delete(cfName string, key []byte) {
 
 func (rocksDB *RocksDB) Has(cfName string, key []byte) bool {
 	return rocksDB.Get(cfName, key) != nil
+}
+
+func (rocksDB *RocksDB) GetFromSnapshot(cfName string, snapshot *gorocksdb.Snapshot, key []byte) []byte {
+	cfHandler := rocksDB.columnFamilyHandle(cfName)
+	if cfHandler == nil {
+		log.Fatalf("column family %s does not exist\n", cfName)
+	}
+	readOpt := gorocksdb.NewDefaultReadOptions()
+	defer readOpt.Destroy()
+	readOpt.SetSnapshot(snapshot)
+	result, err := rocksDB.db.GetCF(readOpt, cfHandler, key)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer result.Free()
+	if result.Data() == nil {
+		return nil
+	}
+	data := make([]byte, 0)
+	copy(data, result.Data())
+	return data
+}
+
+func (rocksDB *RocksDB) GetIterator(cfName string) *gorocksdb.Iterator {
+	cfHandler := rocksDB.columnFamilyHandle(cfName)
+	if cfHandler == nil {
+		log.Fatalf("column family %s does not exist\n", cfName)
+	}
+	readOpt := gorocksdb.NewDefaultReadOptions()
+	readOpt.SetFillCache(true)
+	defer readOpt.Destroy()
+	return rocksDB.db.NewIteratorCF(readOpt, cfHandler)
+}
+
+func (rocksDB *RocksDB) GetSnapshotIterator(cfName string, snapshot *gorocksdb.Snapshot) *gorocksdb.Iterator {
+	cfHandler := rocksDB.columnFamilyHandle(cfName)
+	if cfHandler == nil {
+		log.Fatalf("column family %s does not exist\n", cfName)
+	}
+	readOpt := gorocksdb.NewDefaultReadOptions()
+	defer readOpt.Destroy()
+	readOpt.SetSnapshot(snapshot)
+	return rocksDB.db.NewIteratorCF(readOpt, cfHandler)
 }
 
 func (rocksDB *RocksDB) open(path string, cfNames []string) error {
