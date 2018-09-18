@@ -447,6 +447,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/tecbot/gorocksdb"
+  packages = ["."]
+  revision = "214b6b7bc0f06812ab5602fdc502a3e619916f38"
+
+[[projects]]
+  branch = "master"
   name = "github.com/whyrusleeping/go-logging"
   packages = ["."]
   revision = "0457bb6b88fc1973573aaf6b5145d8d3ae972390"
@@ -558,6 +564,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "f276f33de1484e8e6bb56ee619b2d7fb88c07353d8e692f037585984d32eb2ff"
+  inputs-digest = "b6ed82da7a7588ff85597138d3e10945c50df5b39f417217ce8b75a30b960d83"
   solver-name = "gps-cdcl"
   solver-version = 1
