@@ -93,6 +93,36 @@ func (rocksDB *RocksDB) Get(cfName string, key []byte) []byte {
 	return data
 }
 
+func (rocksDB *RocksDB) Put(cfName string, key []byte, value []byte) {
+	cfHandler := rocksDB.columnFamilyHandle(cfName)
+	if cfHandler == nil {
+		log.Fatalf("column family %s does not exist\n", cfName)
+	}
+	writeOpt := gorocksdb.NewDefaultWriteOptions()
+	defer writeOpt.Destroy()
+	err := rocksDB.db.PutCF(writeOpt, cfHandler, key, value)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (rocksDB *RocksDB) Delete(cfName string, key []byte) {
+	cfHandler := rocksDB.columnFamilyHandle(cfName)
+	if cfHandler == nil {
+		log.Fatalf("column family %s does not exist\n", cfName)
+	}
+	writeOpt := gorocksdb.NewDefaultWriteOptions()
+	defer writeOpt.Destroy()
+	err := rocksDB.db.DeleteCF(writeOpt, cfHandler, key)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (rocksDB *RocksDB) Has(cfName string, key []byte) bool {
+	return rocksDB.Get(cfName, key) != nil
+}
+
 func (rocksDB *RocksDB) open(path string, cfNames []string) error {
 	opts := gorocksdb.NewDefaultOptions()
 	defer  opts.Destroy()
