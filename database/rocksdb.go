@@ -4,6 +4,7 @@ import (
 	"github.com/tecbot/gorocksdb"
 	"sync"
 	"log"
+	"fmt"
 )
 
 type RocksDB struct {
@@ -12,15 +13,16 @@ type RocksDB struct {
 	rwMutex sync.RWMutex
 }
 
-func NewRocksDB(path string, cfNames []string) *RocksDB {
+func NewRocksDB(path string, cfNames []string) (*RocksDB, error) {
 	rocksDB := &RocksDB{
 		cfHandlers: make(map[string]*gorocksdb.ColumnFamilyHandle, 0),
 	}
 	err := rocksDB.open(path, cfNames)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return nil, err
 	}
-	return rocksDB
+	return rocksDB, nil
 }
 
 func (rocksDB *RocksDB) Close() {
@@ -36,9 +38,9 @@ func (rocksDB *RocksDB) Close() {
 	rocksDB.rwMutex.Unlock()
 }
 
-func (rocksDB *RocksDB) AddCF(cfName string, force bool) {
+func (rocksDB *RocksDB) AddCF(cfName string) error {
 	if rocksDB.db == nil {
-		log.Println("database should be created first")
+		fmt.Errorf("database should be created first\n")
 	}
 	opts := gorocksdb.NewDefaultOptions()
 	defer  opts.Destroy()
@@ -46,31 +48,33 @@ func (rocksDB *RocksDB) AddCF(cfName string, force bool) {
 	opts.SetCreateIfMissing(true)
 	cfh, err := rocksDB.db.CreateColumnFamily(opts, cfName)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 	rocksDB.rwMutex.Lock()
 	defer rocksDB.rwMutex.Unlock()
 	if _, ok := rocksDB.cfHandlers[cfName]; ok {
-		if !force {
-			log.Printf("column family %s is existing\n", cfName)
-			return
-		}
+		return fmt.Errorf("column family %s is existing\n", cfName)
 	}
 	rocksDB.cfHandlers[cfName] = cfh
+	return nil
 }
 
-func (rocksDB *RocksDB) RemoveCF(cfName string) {
+func (rocksDB *RocksDB) RemoveCF(cfName string) error {
 	if rocksDB.db == nil {
-		log.Println("database should be created first")
+		return fmt.Errorf("database should be created first")
 	}
 	cfHandler := rocksDB.columnFamilyHandle(cfName)
 	if cfHandler == nil {
-		log.Fatalf("column family %s does not exist\n", cfName)
+		return fmt.Errorf("column family %s does not exist\n", cfName)
 	}
 	err := rocksDB.db.DropColumnFamily(cfHandler)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
+	rocksDB.rwMutex.Lock()
+	defer rocksDB.rwMutex.Unlock()
+	delete(rocksDB.cfHandlers, cfName)
+	return nil
 }
 
 func (rocksDB *RocksDB) Get(cfName string, key []byte) []byte {
@@ -88,7 +92,7 @@ func (rocksDB *RocksDB) Get(cfName string, key []byte) []byte {
 	if result.Data() == nil {
 		return nil
 	}
-	data := make([]byte, 0)
+	data := make([]byte, result.Size())
 	copy(data, result.Data())
 	return data
 }
