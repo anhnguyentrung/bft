@@ -7,22 +7,29 @@ import (
 	"fmt"
 )
 
+const defaultPath  = "db"
+
 type RocksDB struct {
 	db *gorocksdb.DB
 	cfHandlers map[string]*gorocksdb.ColumnFamilyHandle
 	rwMutex sync.RWMutex
 }
 
-func NewRocksDB(path string, cfNames []string) (*RocksDB, error) {
+var db = NewRocksDB(defaultPath, nil)
+
+func NewRocksDB(path string, cfNames []string) *RocksDB {
 	rocksDB := &RocksDB{
 		cfHandlers: make(map[string]*gorocksdb.ColumnFamilyHandle, 0),
 	}
 	err := rocksDB.open(path, cfNames)
 	if err != nil {
-		log.Println(err)
-		return nil, err
+		log.Fatal(err)
 	}
-	return rocksDB, nil
+	return rocksDB
+}
+
+func GetDB() *RocksDB {
+	return db
 }
 
 func (rocksDB *RocksDB) Close() {
