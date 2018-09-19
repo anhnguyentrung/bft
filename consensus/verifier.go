@@ -14,7 +14,7 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 		log.Println("blockchain hasn't a head")
 		return false
 	}
-	blockHeader := proposal.ProposalBlock.Header()
+	blockHeader := proposal.Block.Header()
 	// Are block's height and hash valid
 	if !blockHeader.HeightId.IsValid() {
 		log.Println("block's height or hash is invalid")
@@ -28,7 +28,7 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 	publicKey := proposal.Proposer().PublicKey
 	// Is block signed by proposer
 	blockId := proposal.BlockId()
-	signature := proposal.ProposalBlock.Signature()
+	signature := proposal.Block.Signature()
 	if !signature.Verify(publicKey, blockId[:]) {
 		log.Println("block's signature is wrong")
 		return false
