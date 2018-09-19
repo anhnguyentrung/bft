@@ -81,13 +81,7 @@ func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint
 		log.Println(err)
 		return
 	}
-	message := types.Message{
-		Header: types.MessageHeader{
-			Type: types.SyncRequestMessage,
-			Length: uint32(len(payload)),
-		},
-		Payload: payload,
-	}
+	message := types.NewMessage(types.SyncRequestMessage, payload)
 	c.Send(message)
 }
 

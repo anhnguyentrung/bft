@@ -19,6 +19,7 @@ import (
 	"bft/consensus"
 	"bft/types"
 	"sync"
+	"bft/database"
 	"bft/encoding"
 )
 
@@ -31,6 +32,7 @@ type NetManager struct {
 	connections 	map[string]*Connection
 	keyPair			types.KeyPair
 	address			string
+	chainId 		types.Hash
 	consensusManager *consensus.ConsensusManager
 	dispatcher		*Dispatcher
 }
@@ -42,19 +44,19 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 		targets:			targets,
 		connections:		make(map[string]*Connection),
 	}
-	//TODO: get initial validators
-	validators := types.Validators{}
-	enDecoder := types.EnDecoder{
-		encoding.MarshalBinary,
-		encoding.UnmarshalBinary,
-	}
-	//TODO: load key pair from wallet
-	signer := netManager.keyPair.PrivateKey.Sign
-	address := netManager.keyPair.PublicKey.Address()
-	netManager.consensusManager = consensus.NewConsensusManager(validators, address)
-	netManager.consensusManager.SetEnDecoder(enDecoder)
-	netManager.consensusManager.SetSigner(signer)
-	netManager.consensusManager.SetBroadcaster(netManager.broadcast)
+	////TODO: get initial validators
+	//validators := types.Validators{}
+	//enDecoder := types.EnDecoder{
+	//	encoding.MarshalBinary,
+	//	encoding.UnmarshalBinary,
+	//}
+	////TODO: load key pair from wallet
+	//signer := netManager.keyPair.PrivateKey.Sign
+	//address := netManager.keyPair.PublicKey.Address()
+	//netManager.consensusManager = consensus.NewConsensusManager(validators, address)
+	//netManager.consensusManager.SetEnDecoder(enDecoder)
+	//netManager.consensusManager.SetSigner(signer)
+	//netManager.consensusManager.SetBroadcaster(netManager.broadcast)
 	priv, err := loadIdentity(types.HostIdentity + strconv.Itoa(listenPort))
 	if err != nil {
 		return nil
@@ -83,7 +85,7 @@ func (nm *NetManager) Run() {
 
 func (nm *NetManager) listen() {
 	pid := protocol.ID(types.P2P + types.NetworkVersion)
-	nm.host.SetStreamHandler(pid, nm.handleStream)
+	nm.host.SetStreamHandler(pid, nm.handleInStream)
 }
 
 func (nm *NetManager) addPeers(targets []string) {
@@ -92,10 +94,18 @@ func (nm *NetManager) addPeers(targets []string) {
 	}
 }
 
-func (nm *NetManager) handleStream(s net.Stream) {
+func (nm *NetManager) handleInStream(s net.Stream) {
 	conn := newConnection(s, nm.onReceive, nm.removeConnection)
-	log.Println("connected to %s", conn.RemotePeerId())
+	log.Printf("connected to inbound %s\n", conn.RemotePeerId())
 	nm.addConnection(conn)
+	conn.Start()
+}
+
+func (nm *NetManager) handleOutStream(s net.Stream) {
+	conn := newConnection(s, nm.onReceive, nm.removeConnection)
+	log.Printf("connected to outbound %s\n", conn.RemotePeerId())
+	nm.addConnection(conn)
+	nm.
 	conn.Start()
 }
 
@@ -135,7 +145,7 @@ func (nm *NetManager) addPeer(peerAddress string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	nm.handleStream(stream)
+	nm.handleOutStream(stream)
 }
 
 func (nm *NetManager) addConnection(c *Connection) {
@@ -150,6 +160,22 @@ func (nm *NetManager) removeConnection(c *Connection) {
 	c.Close()
 	delete(nm.connections, c.RemotePeerId())
 	nm.mutex.Unlock()
+}
+
+func (nm *NetManager) sendHanshake(c *Connection) {
+	blockStore := database.GetBlockStore()
+	lastHeightId := blockStore.Head().Header().HeightId
+	handshake := types.NewHanshake(nm.chainId, nm.address, lastHeightId, nm.keyPair.PrivateKey.Sign)
+	if handshake == nil {
+		return
+	}
+	payload, err := encoding.MarshalBinary(*handshake)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	message := types.NewMessage(types.HandshakeMessage, payload)
+	c.Send(message)
 }
 
 func loadIdentity(fileName string) (crypto.PrivKey, error) {

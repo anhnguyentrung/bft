@@ -82,16 +82,10 @@ func TestReceiveProposal(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	buf, err := manager.enDecoder.Encode(proposal)
+	payload, err := manager.enDecoder.Encode(proposal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	message := types.Message{
-		Header: types.MessageHeader{
-			Type: types.ProposalMessage,
-			Length: uint32(len(buf)),
-		},
-		Payload: buf,
-	}
+	message := types.NewMessage(types.ProposalMessage, payload)
 	manager.Receive(message)
 }

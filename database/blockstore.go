@@ -17,16 +17,12 @@ type BlockStore struct {
 var blockStore = NewBlockStore()
 
 func NewBlockStore() *BlockStore {
-	if blockStore != nil {
-		return blockStore
-	}
 	db := GetDB()
 	db.AddCF(BlockStoreCF)
-	blockStore = &BlockStore{
+	return &BlockStore{
 		GetDB(),
 		nil,
 	}
-	return blockStore
 }
 
 func GetBlockStore() *BlockStore {

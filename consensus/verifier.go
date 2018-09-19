@@ -10,7 +10,8 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 		return false
 	}
 	// Does blockchain have a head
-	if cm.head == nil {
+	head := cm.head()
+	if head == nil {
 		log.Println("blockchain hasn't a head")
 		return false
 	}
@@ -21,7 +22,7 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 		return false
 	}
 	// Does block proposal's previous id equal head's id
-	if !blockHeader.PreviousId.Equals(cm.head.Id()) || blockHeader.Height() != cm.head.Height() {
+	if !blockHeader.PreviousId.Equals(head.Id()) || blockHeader.Height() != head.Height() {
 		log.Println("unlinkable block")
 		return false
 	}

@@ -349,14 +349,7 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 		log.Println(err)
 		return
 	}
-	length := uint32(len(payload))
-	message := types.Message{
-		types.MessageHeader{
-			types.VoteMessage,
-			length,
-		},
-		payload,
-	}
+	message := types.NewMessage(types.VoteMessage, payload)
 	cm.broadcaster(message)
 }
 
@@ -366,14 +359,7 @@ func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
 		log.Println(err)
 		return
 	}
-	length := uint32(len(payload))
-	message := types.Message{
-		types.MessageHeader{
-			types.ProposalMessage,
-			length,
-		},
-		payload,
-	}
+	message := types.NewMessage(types.ProposalMessage, payload)
 	cm.broadcaster(message)
 }
 
