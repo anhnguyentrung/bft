@@ -66,7 +66,7 @@ func newProposal() (*types.Proposal, error) {
 	if err != nil {
 		return nil, err
 	}
-	signedBlock := types.SignedBlock{ SignedHeader: signedBlockHeader }
+	signedBlock := types.Block{ SignedHeader: signedBlockHeader }
 	proposal := &types.Proposal{
 		View: types.View{
 			0,
