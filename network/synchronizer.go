@@ -3,6 +3,8 @@ package network
 import (
 	"bft/database"
 	"log"
+	"bft/types"
+	"bft/encoding"
 )
 
 type SyncState uint8
@@ -27,7 +29,6 @@ type Synchronizer struct {
 	knownHeight uint64
 	lastRequestedHeight uint64
 	expectedHeight uint64
-	source *Connection
 	state SyncState
 }
 
@@ -47,14 +48,6 @@ func (synchronizer *Synchronizer) setState(state SyncState) {
 	synchronizer.state = state
 }
 
-func (synchronizer *Synchronizer) shouldSync(c *Connection) bool {
-	blockStore := database.GetBlockStore()
-	if c != nil && synchronizer.state == Catchup {
-		return c.lastHeightId.IsValid() && c.lastHeightId.Height < blockStore.Head().Height()
-	}
-	return false
-}
-
 func (synchronizer *Synchronizer) requestBlocks(c *Connection) {
 	blockStore := database.GetBlockStore()
 	lastHeight := blockStore.Head().Height()
@@ -72,14 +65,30 @@ func (synchronizer *Synchronizer) requestBlocks(c *Connection) {
 		start := synchronizer.expectedHeight
 		end := synchronizer.knownHeight
 		if end > 0 && end >= start {
-
+			synchronizer.sendSyncRequest(c, start, end)
 			synchronizer.lastRequestedHeight = end
 		}
 	}
 }
 
-func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint32) {
-
+func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint64) {
+	syncRequest := types.SyncRequest{
+		StartHeight: start,
+		EndHeight: end,
+	}
+	payload, err := encoding.MarshalBinary(syncRequest)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	message := types.Message{
+		Header: types.MessageHeader{
+			Type: types.SyncRequestMessage,
+			Length: uint32(len(payload)),
+		},
+		Payload: payload,
+	}
+	c.Send(message)
 }
 
 

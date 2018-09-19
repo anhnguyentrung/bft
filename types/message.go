@@ -5,6 +5,7 @@ const (
 	HandshakeMessage MessageType = iota
 	ProposalMessage
 	VoteMessage
+	SyncRequestMessage
 )
 
 type MessageHeader struct {
@@ -14,4 +15,9 @@ type MessageHeader struct {
 type Message struct {
 	Header MessageHeader
 	Payload []byte
+}
+
+type SyncRequest struct {
+	StartHeight uint64
+	EndHeight uint64
 }
