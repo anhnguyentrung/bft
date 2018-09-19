@@ -8,6 +8,7 @@ import (
 	"bft/crypto"
 	"math"
 	"time"
+	"bft/database"
 )
 
 type BroadcastFunc func(message types.Message)
@@ -16,7 +17,7 @@ type ConsensusManager struct {
 	mutex sync.Mutex
 	currentState *ConsensusState
 	validatorSet *types.ValidatorSet
-	head *types.BlockHeader
+	blockStore *database.BlockStore
 	enDecoder types.EnDecoder
 	signer crypto.SignFunc
 	broadcaster BroadcastFunc
@@ -41,6 +42,10 @@ func (cm *ConsensusManager) SetSigner(signer crypto.SignFunc) {
 
 func (cm *ConsensusManager) SetBroadcaster(broadcaster BroadcastFunc) {
 	cm.broadcaster = broadcaster
+}
+
+func (cm *ConsensusManager) head() *types.Block {
+	return cm.blockStore.Head()
 }
 
 func (cm *ConsensusManager) Receive(message types.Message) {
@@ -236,15 +241,15 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 	}
 	newView := types.View{
 		0,
-		cm.head.Height() + 1,
+		cm.head().Height() + 1,
 	}
 	if cm.currentState == nil {
 		log.Println("initial round")
 		cm.currentState = NewConsensusState(newView, cm.validatorSet)
-	} else if cm.head.Height() >= cm.currentState.height() {
+	} else if cm.head().Height() >= cm.currentState.height() {
 		log.Println("catch up latest proposal")
 		cm.currentState = NewConsensusState(newView, cm.validatorSet)
-	} else if cm.head.Height() == cm.currentState.height() - 1 {
+	} else if cm.head().Height() == cm.currentState.height() - 1 {
 		if round == 0 {
 			return
 		}
@@ -304,7 +309,7 @@ func (cm *ConsensusManager) handleTimeout() {
 			return
 		}
 	}
-	if cm.head != nil && cm.head.Height() >= cm.currentState.height() {
+	if cm.head != nil && cm.head().Height() >= cm.currentState.height() {
 		cm.startNewRound(0)
 	} else {
 		cm.sendRoundChange(cm.currentState.round() + 1)

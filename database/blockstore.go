@@ -7,20 +7,34 @@ import (
 	"bft/encoding"
 )
 
+const BlockStoreCF = "blockstore"
+
 type BlockStore struct {
-	cfName string
 	db *RocksDB
 	head *types.Block
 }
 
-func NewBlockStore(name string) *BlockStore {
+var blockStore = NewBlockStore()
+
+func NewBlockStore() *BlockStore {
+	if blockStore != nil {
+		return blockStore
+	}
 	db := GetDB()
-	db.AddCF(name)
-	return &BlockStore{
-		name,
+	db.AddCF(BlockStoreCF)
+	blockStore = &BlockStore{
 		GetDB(),
 		nil,
 	}
+	return blockStore
+}
+
+func GetBlockStore() *BlockStore {
+	return blockStore
+}
+
+func (bs *BlockStore) Head() *types.Block {
+	return bs.head
 }
 
 func (bs *BlockStore) AddBlock(block *types.Block) error {
@@ -98,25 +112,25 @@ func keyFromId(id types.Hash) []byte {
 
 
 func (bs *BlockStore) put(key, value []byte) {
-	bs.db.Put(bs.cfName, key, value)
+	bs.db.Put(BlockStoreCF, key, value)
 }
 
 func (bs *BlockStore) get(key []byte) []byte {
-	return bs.db.Get(bs.cfName, key)
+	return bs.db.Get(BlockStoreCF, key)
 }
 
 func (bs *BlockStore) delete(key []byte) {
-	bs.db.Delete(bs.cfName, key)
+	bs.db.Delete(BlockStoreCF, key)
 }
 
 func (bs *BlockStore) has(key []byte) bool {
-	return bs.db.Has(bs.cfName, key)
+	return bs.db.Has(BlockStoreCF, key)
 }
 
 func (bs *BlockStore) iterator() *gorocksdb.Iterator {
-	return bs.db.GetIterator(bs.cfName)
+	return bs.db.GetIterator(BlockStoreCF)
 }
 
 func (bs *BlockStore) getFromSnapshot(snapshot *gorocksdb.Snapshot, key []byte) []byte {
-	return bs.db.GetFromSnapshot(bs.cfName, snapshot, key)
+	return bs.db.GetFromSnapshot(BlockStoreCF, snapshot, key)
 }

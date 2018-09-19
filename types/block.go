@@ -52,6 +52,14 @@ func (sb *Block) Header() BlockHeader{
 	return sb.SignedHeader.Header
 }
 
+func (sb *Block) Height() uint64 {
+	return sb.Header().Height()
+}
+
+func (sb *Block) Id() Hash {
+	return sb.Header().Id()
+}
+
 func (sb *Block) Signature() crypto.Signature {
 	return sb.SignedHeader.Signature
 }

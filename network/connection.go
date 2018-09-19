@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"github.com/libp2p/go-libp2p-net"
+	"bft/encoding"
 )
 
 type ReceiveFunc func (message types.Message)
@@ -16,6 +17,8 @@ type Connection struct {
 	mutex sync.Mutex
 	stream net.Stream
 	readWriter *bufio.ReadWriter
+	lastHeightId types.BlockHeightId
+	syncing bool
 	onReceive ReceiveFunc
 	onFinish FinishFunc
 }
@@ -25,13 +28,14 @@ func newConnection(stream net.Stream, onReceive ReceiveFunc, onFinish FinishFunc
 	return &Connection{
 		stream:stream,
 		readWriter:rw,
+		syncing:false,
 		onReceive:onReceive,
 		onFinish:onFinish,
 	}
 }
 
 func (c *Connection) Send(message types.Message) error {
-	buf, err := MarshalBinary(message)
+	buf, err := encoding.MarshalBinary(message)
 	if err != nil {
 		return err
 	}
@@ -56,7 +60,16 @@ func (c *Connection) RemotePeerId() string {
 
 func (c *Connection) Close() {
 	c.readWriter = nil
+	c.syncing = false
 	c.stream.Close()
+}
+
+func (c *Connection) Sync(syncing bool) {
+	c.syncing = syncing
+}
+
+func (c *Connection) IsAvailable() bool {
+	return c.readWriter != nil && !c.syncing
 }
 
 func (c *Connection) readLoop() {
@@ -75,7 +88,7 @@ func (c *Connection) readLoop() {
 				Header:		types.MessageHeader{},
 				Payload: 	make([]byte, 0),
 			}
-			err = UnmarshalBinaryMessage([]byte(str), &message)
+			err = encoding.UnmarshalBinaryMessage([]byte(str), &message)
 			if err != nil {
 				log.Fatal(err)
 			}

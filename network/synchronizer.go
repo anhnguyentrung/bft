@@ -1,5 +1,10 @@
 package network
 
+import (
+	"bft/database"
+	"log"
+)
+
 type SyncState uint8
 
 const (
@@ -40,6 +45,41 @@ func (synchronizer *Synchronizer) setState(state SyncState) {
 		return
 	}
 	synchronizer.state = state
+}
+
+func (synchronizer *Synchronizer) shouldSync(c *Connection) bool {
+	blockStore := database.GetBlockStore()
+	if c != nil && synchronizer.state == Catchup {
+		return c.lastHeightId.IsValid() && c.lastHeightId.Height < blockStore.Head().Height()
+	}
+	return false
+}
+
+func (synchronizer *Synchronizer) requestBlocks(c *Connection) {
+	blockStore := database.GetBlockStore()
+	lastHeight := blockStore.Head().Height()
+	if lastHeight < synchronizer.lastRequestedHeight && c.IsAvailable() {
+		return
+	}
+	if !c.IsAvailable() {
+		log.Println("This connection is not available to sync")
+		synchronizer.knownHeight = blockStore.Head().Height()
+		synchronizer.lastRequestedHeight = 0
+		synchronizer.setState(InSync)
+		return
+	}
+	if synchronizer.lastRequestedHeight != synchronizer.knownHeight {
+		start := synchronizer.expectedHeight
+		end := synchronizer.knownHeight
+		if end > 0 && end >= start {
+
+			synchronizer.lastRequestedHeight = end
+		}
+	}
+}
+
+func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint32) {
+
 }
 
 
