@@ -29,25 +29,25 @@ func (v View) Compare(target View) int {
 }
 
 type Proposal struct {
-	View 			View
-	ProposalBlock 	SignedBlock
+	View 	View
+	Block 	Block
 }
 
 func (p *Proposal) DataIgnoredSignature() *Proposal {
 	return &Proposal{
 		p.View,
-		p.ProposalBlock,
+		p.Block,
 	}
 }
 
 func (p *Proposal) BlockId() Hash {
-	return p.ProposalBlock.Header().Id()
+	return p.Block.Header().Id()
 }
 
 func (p *Proposal) BlockHeightId() BlockHeightId {
-	return p.ProposalBlock.Header().HeightId
+	return p.Block.Header().HeightId
 }
 
 func (p *Proposal) Proposer() Validator {
-	return p.ProposalBlock.Header().Proposer
+	return p.Block.Header().Proposer
 }

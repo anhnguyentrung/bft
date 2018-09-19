@@ -1,4 +1,4 @@
-package network
+package encoding
 
 import (
 	"reflect"
@@ -7,6 +7,7 @@ import (
 	deserializer "github.com/anhnguyentrung/binaryserializer"
 	"bft/types"
 	"bft/crypto"
+	"time"
 )
 
 const SHA256TypeSize = 32
@@ -49,6 +50,15 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 			}
 			signature := crypto.Signature{ Data: bytes}
 			rv.Set(reflect.ValueOf(signature))
+			return nil
+		case *time.Time:
+			bytes, err := d.ReadBytes(deserializer.Uint64Size)
+			if err != nil {
+				return err
+			}
+			unixNano := binary.BigEndian.Uint64(bytes)
+			ts := time.Unix(0, int64(unixNano))
+			rv.Set(reflect.ValueOf(ts))
 			return nil
 		default:
 			rv := reflect.Indirect(reflect.ValueOf(v))

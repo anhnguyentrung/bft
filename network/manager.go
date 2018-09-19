@@ -19,6 +19,7 @@ import (
 	"bft/consensus"
 	"bft/types"
 	"sync"
+	"bft/encoding"
 )
 
 type NetManager struct {
@@ -44,8 +45,8 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 	//TODO: get initial validators
 	validators := types.Validators{}
 	enDecoder := types.EnDecoder{
-		MarshalBinary,
-		UnmarshalBinary,
+		encoding.MarshalBinary,
+		encoding.UnmarshalBinary,
 	}
 	//TODO: load key pair from wallet
 	signer := netManager.keyPair.PrivateKey.Sign

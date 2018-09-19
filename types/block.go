@@ -35,7 +35,7 @@ func (blockHeader BlockHeader) Height() uint64 {
 }
 
 func (blockHeader BlockHeader) Id() Hash {
-	return blockHeader.Id()
+	return blockHeader.HeightId.Id
 }
 
 type SignedBlockHeader struct {
@@ -43,15 +43,15 @@ type SignedBlockHeader struct {
 	Signature crypto.Signature
 }
 
-type SignedBlock struct {
+type Block struct {
 	SignedHeader SignedBlockHeader
 	Commits []Vote
 }
 
-func (sb *SignedBlock) Header() BlockHeader{
+func (sb *Block) Header() BlockHeader{
 	return sb.SignedHeader.Header
 }
 
-func (sb *SignedBlock) Signature() crypto.Signature {
+func (sb *Block) Signature() crypto.Signature {
 	return sb.SignedHeader.Signature
 }
