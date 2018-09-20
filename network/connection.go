@@ -8,6 +8,7 @@ import (
 	"log"
 	"github.com/libp2p/go-libp2p-net"
 	"bft/encoding"
+	"strings"
 )
 
 type ReceiveFunc func (message types.Message, connection *Connection)
@@ -88,8 +89,10 @@ func (c *Connection) readLoop() {
 			return
 		}
 		if str != "\n" {
+			str = strings.TrimSuffix(str, "\n")
+			buf := []byte(str)
 			message := types.Message{}
-			err = encoding.UnmarshalBinary([]byte(str), &message)
+			err = encoding.UnmarshalBinary(buf, &message)
 			if err != nil {
 				log.Fatal(err)
 			}

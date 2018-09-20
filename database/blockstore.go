@@ -25,10 +25,12 @@ func NewBlockStore() *BlockStore {
 	bs := &BlockStore{
 		db: GetDB(),
 	}
+	genesis := types.NewGenesis()
+	bs.chainId = genesis.ChainId(encoding.MarshalBinary)
 	if bs.LastHeight() == 0 {
 		//Add genesis block
-		genesis := types.NewGenesis()
-		bs.chainId = genesis.ChainId(encoding.MarshalBinary)
+		log.Println("add genesis")
+		log.Println(bs.chainId)
 		genesisBlock := types.NewGenesisBlock(genesis, encoding.MarshalBinary)
 		bs.AddBlock(genesisBlock)
 	}

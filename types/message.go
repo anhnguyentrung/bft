@@ -107,7 +107,19 @@ func (handshake *Handshake) Height() uint64 {
 }
 
 func (handshake *Handshake) IsValid() bool {
-	return !handshake.ChainId.IsEmpty() && handshake.LastHeightId.IsValid() && handshake.Signature.IsValid()
+	if handshake.ChainId.IsEmpty() {
+		log.Println("chain id is empty")
+		return false
+	}
+	if !handshake.LastHeightId.IsValid() {
+		log.Println("height, id are invalid")
+		return false
+	}
+	if !handshake.Signature.IsValid() {
+		log.Println("signature is invalid")
+		return false
+	}
+	return true
 }
 
 func (handshake *Handshake) Verify() bool {
