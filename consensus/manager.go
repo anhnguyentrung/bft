@@ -48,34 +48,34 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.VoteMessage:
-		vote := types.Vote{}
-		err := encoding.UnmarshalBinary(message.Payload, &vote)
-		if err != nil {
-			log.Fatal(err)
-		}
+		vote := message.ToVote()
 		cm.onVote(vote)
 	case types.ProposalMessage:
-		proposal := types.Proposal{}
-		err := encoding.UnmarshalBinary(message.Payload, &proposal)
-		if err != nil {
-			log.Fatal(err)
-		}
-		cm.onProposal(&proposal)
+		proposal := message.ToProposal()
+		cm.onProposal(proposal)
 	}
 }
 
-func (cm *ConsensusManager) onVote(vote types.Vote) {
+func (cm *ConsensusManager) onVote(vote *types.Vote) {
+	if vote == nil {
+		log.Println("unable to parse vote")
+		return
+	}
 	switch vote.Type {
 	case types.Prepare:
-		cm.onPrepare(vote)
+		cm.onPrepare(*vote)
 	case types.Commit:
-		cm.onCommit(vote)
+		cm.onCommit(*vote)
 	case types.RoundChange:
-		cm.onRoundChange(vote)
+		cm.onRoundChange(*vote)
 	}
 }
 
 func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
+	if proposal == nil {
+		log.Println("unable to parse proposal")
+		return
+	}
 	// check proposal's round and height
 	if result := proposal.View.Compare(cm.currentState.view); result != 0 {
 		// if proposal is an existing block, broadcast commit

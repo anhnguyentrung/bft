@@ -4,6 +4,7 @@ import (
 	"time"
 	"bft/crypto"
 	"log"
+	"bft/encoding"
 )
 
 type MessageType uint8
@@ -31,6 +32,42 @@ func NewMessage(messageType MessageType, payload []byte) Message {
 		},
 		Payload: payload,
 	}
+}
+
+func (message Message) ToHandshake() *Handshake {
+	handshake := Handshake{}
+	err := encoding.UnmarshalBinary(message.Payload, &handshake)
+	if err != nil {
+		return nil
+	}
+	return &handshake
+}
+
+func (message Message) ToProposal() *Proposal {
+	proposal := Proposal{}
+	err := encoding.UnmarshalBinary(message.Payload, &proposal)
+	if err != nil {
+		return nil
+	}
+	return &proposal
+}
+
+func (message Message) ToVote() *Vote {
+	vote := Vote{}
+	err := encoding.UnmarshalBinary(message.Payload, &vote)
+	if err != nil {
+		return nil
+	}
+	return &vote
+}
+
+func (message Message) ToSyncRequest() *SyncRequest {
+	syncRequest := SyncRequest{}
+	err := encoding.UnmarshalBinary(message.Payload, &syncRequest)
+	if err != nil {
+		return nil
+	}
+	return &syncRequest
 }
 
 type SyncRequest struct {
@@ -62,4 +99,8 @@ func NewHandshake(chainId Hash, address string, lastHeightId BlockHeightId, sign
 		signature,
 	}
 	return handshake
+}
+
+func (handshake *Handshake) IsValid() bool {
+	return !handshake.ChainId.IsEmpty() && handshake.LastHeightId.IsValid() && handshake.Signature.IsValid()
 }

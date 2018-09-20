@@ -14,6 +14,10 @@ func (h Hash) String() string {
 func (h Hash) Equals(target Hash) bool {
 	return bytes.Equal(h[:], target[:])
 }
+func (h Hash) IsEmpty() bool {
+	emptyHash := Hash{}
+	return h.Equals(emptyHash)
+}
 type KeyPair struct {
 	PrivateKey crypto.PrivateKey
 	PublicKey crypto.PublicKey

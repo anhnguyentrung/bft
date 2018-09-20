@@ -113,8 +113,8 @@ func (nm *NetManager) onReceive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.HandshakeMessage:
-		handshake := types.Handshake{}
-		encoding.UnmarshalBinary(message.Payload, &handshake)
+		handshake := message.ToHandshake()
+		nm.handleHandshake(handshake)
 	case types.VoteMessage, types.ProposalMessage:
 		nm.consensusManager.Receive(message)
 	}
@@ -185,8 +185,19 @@ func (nm *NetManager) sendHandshake(c *Connection) {
 	c.Send(message)
 }
 
-func (nm *NetManager) handleHandshake(handshake types.Handshake) {
-
+func (nm *NetManager) handleHandshake(handshake *types.Handshake) {
+	if handshake == nil {
+		log.Println("unable to parse handshake")
+		return
+	}
+	if !handshake.IsValid() {
+		log.Println("handshake message is invalid")
+		return
+	}
+	blockstore := database.GetBlockStore()
+	localLastHeight := blockstore.LastHeight()
+	remoteLastHeight := handshake.LastHeightId.Height
+	
 }
 
 func loadIdentity(fileName string) (crypto.PrivKey, error) {

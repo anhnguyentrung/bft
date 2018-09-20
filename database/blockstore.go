@@ -5,9 +5,11 @@ import (
 	"bft/types"
 	"fmt"
 	"bft/encoding"
+	"log"
 )
 
 const BlockStoreCF = "blockstore"
+const LastHeightKey = "lastheight"
 
 type BlockStore struct {
 	db *RocksDB
@@ -30,7 +32,35 @@ func GetBlockStore() *BlockStore {
 }
 
 func (bs *BlockStore) Head() *types.Block {
-	return bs.head
+	if bs.head != nil {
+		return bs.head
+	}
+	// try to load from database
+	lastHeight := bs.LastHeight()
+	if lastHeight != 0 {
+		head, err := bs.GetBlockFromHeight(lastHeight)
+		if err != nil {
+			log.Println(err)
+			return nil
+		}
+		bs.head = head
+		return bs.head
+	}
+	return nil
+}
+
+func (bs *BlockStore) LastHeight() uint64 {
+	if bs.head != nil {
+		return bs.head.Height()
+	}
+	// try to load from database
+	value := bs.get([]byte(LastHeightKey))
+	if value == nil {
+		return 0
+	}
+	lastHeight := uint64(0)
+	encoding.UnmarshalBinary(value, &lastHeight)
+	return lastHeight
 }
 
 func (bs *BlockStore) AddBlock(block *types.Block) error {
@@ -51,6 +81,8 @@ func (bs *BlockStore) AddBlock(block *types.Block) error {
 	}
 	bs.put(keyFromId(block.Header().Id()), blockData)
 	bs.head = block
+	//save last height
+	bs.saveLastHeight(height)
 	return nil
 }
 
@@ -94,6 +126,11 @@ func (bs *BlockStore) RemoveBlock(height uint64) error {
 	//remove block
 	bs.delete(keyFromId(header.Id()))
 	return nil
+}
+
+func (bs *BlockStore) saveLastHeight(height uint64) {
+	value, _ := encoding.MarshalBinary(height)
+	bs.put([]byte(LastHeightKey), value)
 }
 
 func keyFromHeight(height uint64) []byte {

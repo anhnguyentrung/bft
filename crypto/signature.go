@@ -48,3 +48,8 @@ func (signature *Signature) Verify(pubKey PublicKey, hash []byte) bool {
 	}
 	return false
 }
+
+func (signature *Signature) IsValid() bool {
+	emptySig := make([]byte, 65, 65)
+	return !bytes.Equal(signature.Data, emptySig)
+}
