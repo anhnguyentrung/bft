@@ -108,6 +108,10 @@ func NewHandshake(chainId Hash, address string, lastHeightId BlockHeightId, sign
 	return &handshake
 }
 
+func (handshake *Handshake) Height() uint64 {
+	return handshake.LastHeightId.Height
+}
+
 func (handshake *Handshake) IsValid() bool {
 	return !handshake.ChainId.IsEmpty() && handshake.LastHeightId.IsValid() && handshake.Signature.IsValid()
 }

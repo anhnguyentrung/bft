@@ -85,4 +85,43 @@ func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint
 	c.Send(message)
 }
 
+func (synchronizer *Synchronizer) updateKnownHeight(connection *Connection) {
+	if connection.IsAvailable() {
+		if connection.lastReceivedHandshake.Height() > synchronizer.knownHeight {
+			synchronizer.knownHeight = connection.lastReceivedHandshake.Height()
+		}
+	}
+}
+
+func (synchronizer *Synchronizer) shouldSync() bool {
+	blockStore := database.GetBlockStore()
+	return synchronizer.lastRequestedHeight < synchronizer.knownHeight || blockStore.LastHeight() < synchronizer.lastRequestedHeight
+}
+
+func (synchronizer *Synchronizer) startSync(connection *Connection, localLastHeight uint64, remoteLastHeight uint64) {
+	if remoteLastHeight > synchronizer.knownHeight {
+		synchronizer.knownHeight = remoteLastHeight
+	}
+	if !synchronizer.shouldSync() {
+		return
+	}
+	if synchronizer.state == InSync {
+		synchronizer.setState(Catchup)
+		synchronizer.expectedHeight = localLastHeight + 1
+	}
+	synchronizer.requestBlocks(connection)
+}
+
+func (synchronizer *Synchronizer) handleHandshake(handshake *types.Handshake, connection *Connection) {
+	blockStore := database.GetBlockStore()
+	localLastHeight := blockStore.LastHeight()
+	remoteLastHeight := handshake.LastHeightId.Height
+	synchronizer.updateKnownHeight(connection)
+	connection.Sync(false)
+	if localLastHeight < remoteLastHeight {
+		synchronizer.startSync(connection, localLastHeight, remoteLastHeight)
+		return
+	}
+}
+
 

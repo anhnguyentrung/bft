@@ -114,7 +114,7 @@ func (nm *NetManager) onReceive(message types.Message, connection *Connection) {
 	switch messageType {
 	case types.HandshakeMessage:
 		handshake := message.ToHandshake(encoding.UnmarshalBinary)
-		nm.handleHandshake(handshake)
+		nm.handleHandshake(handshake, connection)
 	case types.VoteMessage, types.ProposalMessage:
 		nm.consensusManager.Receive(message)
 	}
