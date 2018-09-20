@@ -66,7 +66,7 @@ func (voteSet *VoteSet) verifyVote(vote Vote) error {
 		return errInvalidVoter
 	}
 	// check signature
-	if !vote.Signature.Verify(voter.PublicKey, vote.Hash[:]) {
+	if !vote.Signature.Verify(voter.Address, vote.Hash[:]) {
 		log.Printf("invalid signature from voter %s", vote.Address)
 		return errInvalidSignature
 	}

@@ -4,7 +4,7 @@ import (
 	"time"
 	"bft/crypto"
 	"log"
-	"bft/encoding"
+	"crypto/sha256"
 )
 
 type MessageType uint8
@@ -34,36 +34,36 @@ func NewMessage(messageType MessageType, payload []byte) Message {
 	}
 }
 
-func (message Message) ToHandshake() *Handshake {
+func (message Message) ToHandshake(decoder DeserializeFunc) *Handshake {
 	handshake := Handshake{}
-	err := encoding.UnmarshalBinary(message.Payload, &handshake)
+	err := decoder(message.Payload, &handshake)
 	if err != nil {
 		return nil
 	}
 	return &handshake
 }
 
-func (message Message) ToProposal() *Proposal {
+func (message Message) ToProposal(decoder DeserializeFunc) *Proposal {
 	proposal := Proposal{}
-	err := encoding.UnmarshalBinary(message.Payload, &proposal)
+	err := decoder(message.Payload, &proposal)
 	if err != nil {
 		return nil
 	}
 	return &proposal
 }
 
-func (message Message) ToVote() *Vote {
+func (message Message) ToVote(decoder DeserializeFunc) *Vote {
 	vote := Vote{}
-	err := encoding.UnmarshalBinary(message.Payload, &vote)
+	err := decoder(message.Payload, &vote)
 	if err != nil {
 		return nil
 	}
 	return &vote
 }
 
-func (message Message) ToSyncRequest() *SyncRequest {
+func (message Message) ToSyncRequest(decoder DeserializeFunc) *SyncRequest {
 	syncRequest := SyncRequest{}
-	err := encoding.UnmarshalBinary(message.Payload, &syncRequest)
+	err := decoder(message.Payload, &syncRequest)
 	if err != nil {
 		return nil
 	}
@@ -81,26 +81,43 @@ type Handshake struct {
 	Address string
 	LastHeightId BlockHeightId
 	Timestamp time.Time
+	Digest Hash
 	Signature crypto.Signature
 }
 
-func NewHandshake(chainId Hash, address string, lastHeightId BlockHeightId, signer crypto.SignFunc) *Handshake {
-	signature, err := signer(chainId[:])
+func NewHandshake(chainId Hash, address string, lastHeightId BlockHeightId, signer crypto.SignFunc, encoder SerializeFunc) *Handshake {
+	handshake := Handshake{
+		NetworkVersion: NetworkVersion,
+		ChainId: chainId,
+		Address: address,
+		LastHeightId: lastHeightId,
+		Timestamp: time.Now().UTC(),
+	}
+	buf, err := encoder(handshake)
 	if err != nil {
 		log.Println(err)
 		return nil
 	}
-	handshake := &Handshake{
-		NetworkVersion,
-		chainId,
-		address,
-		lastHeightId,
-		time.Now().UTC(),
-		signature,
+	handshake.Digest = sha256.Sum256(buf)
+	signature, err := signer(handshake.Digest[:])
+	if err != nil {
+		log.Println(err)
+		return nil
 	}
-	return handshake
+	handshake.Signature = signature
+	return &handshake
 }
 
 func (handshake *Handshake) IsValid() bool {
 	return !handshake.ChainId.IsEmpty() && handshake.LastHeightId.IsValid() && handshake.Signature.IsValid()
+}
+
+func (handshake *Handshake) Verify() bool {
+	ts := handshake.Timestamp.UnixNano()
+	now := time.Now().UTC().UnixNano()
+	if now - ts > HandshakeTimeout * int64(time.Second) {
+		log.Println("handshake timeout")
+		return false
+	}
+	return handshake.Signature.Verify(handshake.Address, handshake.Digest[:])
 }

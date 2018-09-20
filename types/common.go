@@ -18,6 +18,8 @@ func (h Hash) IsEmpty() bool {
 	emptyHash := Hash{}
 	return h.Equals(emptyHash)
 }
+type DeserializeFunc func (buf []byte, v interface{}) error
+type SerializeFunc func (v interface{}) ([]byte, error)
 type KeyPair struct {
 	PrivateKey crypto.PrivateKey
 	PublicKey crypto.PublicKey

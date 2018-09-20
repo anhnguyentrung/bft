@@ -109,11 +109,11 @@ func (nm *NetManager) handleOutStream(s net.Stream) {
 	conn.Start()
 }
 
-func (nm *NetManager) onReceive(message types.Message) {
+func (nm *NetManager) onReceive(message types.Message, connection *Connection) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.HandshakeMessage:
-		handshake := message.ToHandshake()
+		handshake := message.ToHandshake(encoding.UnmarshalBinary)
 		nm.handleHandshake(handshake)
 	case types.VoteMessage, types.ProposalMessage:
 		nm.consensusManager.Receive(message)
@@ -172,7 +172,9 @@ func (nm *NetManager) removeConnection(c *Connection) {
 func (nm *NetManager) sendHandshake(c *Connection) {
 	blockStore := database.GetBlockStore()
 	lastHeightId := blockStore.Head().Header().HeightId
-	handshake := types.NewHandshake(nm.chainId, nm.address, lastHeightId, nm.keyPair.PrivateKey.Sign)
+	signer := nm.keyPair.PrivateKey.Sign
+	encoder := encoding.MarshalBinary
+	handshake := types.NewHandshake(nm.chainId, nm.address, lastHeightId, signer, encoder)
 	if handshake == nil {
 		return
 	}
@@ -185,7 +187,7 @@ func (nm *NetManager) sendHandshake(c *Connection) {
 	c.Send(message)
 }
 
-func (nm *NetManager) handleHandshake(handshake *types.Handshake) {
+func (nm *NetManager) handleHandshake(handshake *types.Handshake, connection *Connection) {
 	if handshake == nil {
 		log.Println("unable to parse handshake")
 		return
@@ -194,10 +196,23 @@ func (nm *NetManager) handleHandshake(handshake *types.Handshake) {
 		log.Println("handshake message is invalid")
 		return
 	}
-	blockstore := database.GetBlockStore()
-	localLastHeight := blockstore.LastHeight()
-	remoteLastHeight := handshake.LastHeightId.Height
-	
+	if !nm.chainId.Equals(handshake.ChainId) {
+		log.Println("local chain id and remote chain id are not the same")
+		return
+	}
+	if handshake.NetworkVersion != types.NetworkVersion {
+		log.Println("network version does not match")
+		return
+	}
+	if !handshake.Verify() {
+		log.Println("handshake is not verified")
+		return
+	}
+	if connection.lastSentHandshake == nil {
+		log.Println("should send handshake")
+		nm.sendHandshake(connection)
+	}
+	connection.lastReceivedHandshake = handshake
 }
 
 func loadIdentity(fileName string) (crypto.PrivKey, error) {

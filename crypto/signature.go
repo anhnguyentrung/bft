@@ -38,12 +38,12 @@ func (signature *Signature) String() string {
 	return base58.Encode(encodeData)
 }
 
-func (signature *Signature) Verify(pubKey PublicKey, hash []byte) bool {
+func (signature *Signature) Verify(address string, hash []byte) bool {
 	recoveredPubKey, err := signature.Recover(hash)
 	if err != nil {
 		return false
 	}
-	if bytes.Equal(recoveredPubKey.Data, pubKey.Data) {
+	if recoveredPubKey.Address() == address {
 		return true
 	}
 	return false

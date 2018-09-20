@@ -10,7 +10,7 @@ import (
 	"bft/encoding"
 )
 
-type ReceiveFunc func (message types.Message)
+type ReceiveFunc func (message types.Message, connection *Connection)
 type FinishFunc func (connection *Connection)
 
 type Connection struct {
@@ -19,6 +19,8 @@ type Connection struct {
 	readWriter *bufio.ReadWriter
 	lastHeightId types.BlockHeightId
 	syncing bool
+	lastReceivedHandshake *types.Handshake
+	lastSentHandshake *types.Handshake
 	onReceive ReceiveFunc
 	onFinish FinishFunc
 }
@@ -61,6 +63,8 @@ func (c *Connection) RemotePeerId() string {
 func (c *Connection) Close() {
 	c.readWriter = nil
 	c.syncing = false
+	c.lastSentHandshake = nil
+	c.lastReceivedHandshake = nil
 	c.stream.Close()
 }
 
@@ -92,7 +96,7 @@ func (c *Connection) readLoop() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			c.onReceive(message)
+			c.onReceive(message, c)
 		}
 	}
 }

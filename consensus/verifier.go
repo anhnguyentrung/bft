@@ -30,7 +30,7 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
 	// Is block signed by proposer
 	blockId := proposal.BlockId()
 	signature := proposal.Block.Signature()
-	if !signature.Verify(publicKey, blockId[:]) {
+	if !signature.Verify(publicKey.Address(), blockId[:]) {
 		log.Println("block's signature is wrong")
 		return false
 	}

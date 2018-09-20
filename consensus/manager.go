@@ -48,10 +48,10 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
 	case types.VoteMessage:
-		vote := message.ToVote()
+		vote := message.ToVote(encoding.UnmarshalBinary)
 		cm.onVote(vote)
 	case types.ProposalMessage:
-		proposal := message.ToProposal()
+		proposal := message.ToProposal(encoding.UnmarshalBinary)
 		cm.onProposal(proposal)
 	}
 }
