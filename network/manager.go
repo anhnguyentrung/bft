@@ -105,13 +105,16 @@ func (nm *NetManager) handleOutStream(s net.Stream) {
 	conn := newConnection(s, nm.onReceive, nm.removeConnection)
 	log.Printf("connected to outbound %s\n", conn.RemotePeerId())
 	nm.addConnection(conn)
-	nm.
+	nm.sendHandshake(conn)
 	conn.Start()
 }
 
 func (nm *NetManager) onReceive(message types.Message) {
 	messageType := message.Header.Type
 	switch messageType {
+	case types.HandshakeMessage:
+		handshake := types.Handshake{}
+		encoding.UnmarshalBinary(message.Payload, &handshake)
 	case types.VoteMessage, types.ProposalMessage:
 		nm.consensusManager.Receive(message)
 	}
@@ -126,15 +129,18 @@ func (nm *NetManager) broadcast(message types.Message) {
 func (nm *NetManager) addPeer(peerAddress string) {
 	fullAddr, err := multiaddr.NewMultiaddr(peerAddress)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	pid, err := fullAddr.ValueForProtocol(multiaddr.P_IPFS)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	peerId, err := peer.IDB58Decode(pid)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	ipfsPart, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ipfs/%s", peer.IDB58Encode(peerId)))
 	targetAddr := fullAddr.Decapsulate(ipfsPart)
@@ -143,7 +149,8 @@ func (nm *NetManager) addPeer(peerAddress string) {
 	protocolId := protocol.ID(types.P2P + types.NetworkVersion)
 	stream, err := nm.host.NewStream(context.Background(), peerId, protocolId)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	nm.handleOutStream(stream)
 }
@@ -162,10 +169,10 @@ func (nm *NetManager) removeConnection(c *Connection) {
 	nm.mutex.Unlock()
 }
 
-func (nm *NetManager) sendHanshake(c *Connection) {
+func (nm *NetManager) sendHandshake(c *Connection) {
 	blockStore := database.GetBlockStore()
 	lastHeightId := blockStore.Head().Header().HeightId
-	handshake := types.NewHanshake(nm.chainId, nm.address, lastHeightId, nm.keyPair.PrivateKey.Sign)
+	handshake := types.NewHandshake(nm.chainId, nm.address, lastHeightId, nm.keyPair.PrivateKey.Sign)
 	if handshake == nil {
 		return
 	}
@@ -176,6 +183,10 @@ func (nm *NetManager) sendHanshake(c *Connection) {
 	}
 	message := types.NewMessage(types.HandshakeMessage, payload)
 	c.Send(message)
+}
+
+func (nm *NetManager) handleHandshake(handshake types.Handshake) {
+
 }
 
 func loadIdentity(fileName string) (crypto.PrivKey, error) {

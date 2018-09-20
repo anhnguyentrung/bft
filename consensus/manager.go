@@ -9,6 +9,7 @@ import (
 	"math"
 	"time"
 	"bft/database"
+	"bft/encoding"
 )
 
 type BroadcastFunc func(message types.Message)
@@ -18,7 +19,6 @@ type ConsensusManager struct {
 	currentState *ConsensusState
 	validatorSet *types.ValidatorSet
 	blockStore *database.BlockStore
-	enDecoder types.EnDecoder
 	signer crypto.SignFunc
 	broadcaster BroadcastFunc
 	roundChangeTimer *time.Timer
@@ -30,10 +30,6 @@ func NewConsensusManager(validators types.Validators, address string) *Consensus
 	cm.validatorSet = types.NewValidatorSet(validators, address)
 	cm.f = int(math.Floor(float64(cm.validatorSet.Size())/3))
 	return cm
-}
-
-func (cm *ConsensusManager) SetEnDecoder(enDecoder types.EnDecoder) {
-	cm.enDecoder = enDecoder
 }
 
 func (cm *ConsensusManager) SetSigner(signer crypto.SignFunc) {
@@ -53,14 +49,14 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 	switch messageType {
 	case types.VoteMessage:
 		vote := types.Vote{}
-		err := cm.enDecoder.Decode(message.Payload, &vote)
+		err := encoding.UnmarshalBinary(message.Payload, &vote)
 		if err != nil {
 			log.Fatal(err)
 		}
 		cm.onVote(vote)
 	case types.ProposalMessage:
 		proposal := types.Proposal{}
-		err := cm.enDecoder.Decode(message.Payload, &proposal)
+		err := encoding.UnmarshalBinary(message.Payload, &proposal)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -331,7 +327,7 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 		blockId,
 		crypto.Signature{},
 	}
-	buf, err := cm.enDecoder.Encode(vote)
+	buf, err := encoding.MarshalBinary(vote)
 	if err != nil {
 		log.Println(err)
 		return
@@ -344,7 +340,7 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 		return
 	}
 	vote.Signature = sig
-	payload, err := cm.enDecoder.Encode(vote)
+	payload, err := encoding.MarshalBinary(vote)
 	if err != nil {
 		log.Println(err)
 		return
@@ -354,7 +350,7 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 }
 
 func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
-	payload, err := cm.enDecoder.Encode(proposal)
+	payload, err := encoding.MarshalBinary(proposal)
 	if err != nil {
 		log.Println(err)
 		return

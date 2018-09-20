@@ -47,7 +47,7 @@ type Handshake struct {
 	Signature crypto.Signature
 }
 
-func NewHanshake(chainId Hash, address string, lastHeightId BlockHeightId, signer crypto.SignFunc) *Handshake {
+func NewHandshake(chainId Hash, address string, lastHeightId BlockHeightId, signer crypto.SignFunc) *Handshake {
 	signature, err := signer(chainId[:])
 	if err != nil {
 		log.Println(err)

@@ -11,22 +11,16 @@ import (
 var fileName = "test.db"
 
 func TestNewRocksDB(t *testing.T) {
-	rocksDB, err := setup()
+	rocksDB := setup()
 	defer rocksDB.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestRocksDB_AddCF(t *testing.T) {
-	rocksDB, err := setup()
+	rocksDB := setup()
 	defer rocksDB.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
 	cfName := "blockchain"
 	rocksDB.RemoveCF(cfName)
-	err = rocksDB.AddCF(cfName)
+	err := rocksDB.AddCF(cfName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,14 +43,11 @@ func TestRocksDB_AddCF(t *testing.T) {
 }
 
 func TestRocksDB_RemoveCF(t *testing.T) {
-	rocksDB, err := setup()
+	rocksDB := setup()
 	defer rocksDB.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
 	cfName := "blockchain"
 	rocksDB.AddCF(cfName)
-	err = rocksDB.RemoveCF(cfName)
+	err := rocksDB.RemoveCF(cfName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,7 +70,7 @@ func TestRocksDB_RemoveCF(t *testing.T) {
 }
 
 func TestRocksDB_PutGet(t *testing.T) {
-	rocksDB, _ := setup()
+	rocksDB := setup()
 	defer rocksDB.Close()
 	cfName := "blockchain"
 	rocksDB.AddCF(cfName)
@@ -95,7 +86,7 @@ func TestRocksDB_PutGet(t *testing.T) {
 }
 
 func TestRocksDB_Delete(t *testing.T) {
-	rocksDB, _ := setup()
+	rocksDB := setup()
 	defer rocksDB.Close()
 	cfName := "blockchain"
 	rocksDB.AddCF(cfName)
@@ -109,9 +100,9 @@ func TestRocksDB_Delete(t *testing.T) {
 	}
 }
 
-func setup() (*RocksDB, error) {
+func setup() *RocksDB {
 	os.RemoveAll(fileName)
-	return NewRocksDB(fileName, nil)
+	return NewRocksDB(fileName)
 }
 
 func encode(i int) []byte {

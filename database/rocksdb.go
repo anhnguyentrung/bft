@@ -15,13 +15,13 @@ type RocksDB struct {
 	rwMutex sync.RWMutex
 }
 
-var db = NewRocksDB(defaultPath, nil)
+var db = NewRocksDB(defaultPath)
 
-func NewRocksDB(path string, cfNames []string) *RocksDB {
+func NewRocksDB(path string) *RocksDB {
 	rocksDB := &RocksDB{
 		cfHandlers: make(map[string]*gorocksdb.ColumnFamilyHandle, 0),
 	}
-	err := rocksDB.open(path, cfNames)
+	err := rocksDB.open(path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -177,18 +177,19 @@ func (rocksDB *RocksDB) GetSnapshotIterator(cfName string, snapshot *gorocksdb.S
 	return rocksDB.db.NewIteratorCF(readOpt, cfHandler)
 }
 
-func (rocksDB *RocksDB) open(path string, cfNames []string) error {
+func (rocksDB *RocksDB) open(path string) error {
 	opts := gorocksdb.NewDefaultOptions()
 	defer  opts.Destroy()
 	opts.SetCreateIfMissingColumnFamilies(true)
 	opts.SetCreateIfMissing(true)
-	givenCFNames := []string{"default"}
-	givenCFNames = append(givenCFNames, cfNames...)
+	cfNames := []string{"default"}
+	existedCFNames, _ := gorocksdb.ListColumnFamilies(opts, path)
+	cfNames = append(cfNames, existedCFNames...)
 	cfOpts := make([]*gorocksdb.Options, 0)
-	for range givenCFNames {
+	for range cfNames {
 		cfOpts = append(cfOpts, opts)
 	}
-	db, cfhs, err := gorocksdb.OpenDbColumnFamilies(opts, path, givenCFNames, cfOpts)
+	db, cfhs, err := gorocksdb.OpenDbColumnFamilies(opts, path, cfNames, cfOpts)
 	if err != nil {
 		return err
 	}
@@ -197,7 +198,7 @@ func (rocksDB *RocksDB) open(path string, cfNames []string) error {
 	for i, cfh := range cfhs {
 		// ignore default column family
 		if i > 0 {
-			rocksDB.cfHandlers[givenCFNames[i]] = cfh
+			rocksDB.cfHandlers[cfNames[i]] = cfh
 		}
 	}
 	rocksDB.rwMutex.Unlock()

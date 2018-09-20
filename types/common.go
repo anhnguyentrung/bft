@@ -14,12 +14,6 @@ func (h Hash) String() string {
 func (h Hash) Equals(target Hash) bool {
 	return bytes.Equal(h[:], target[:])
 }
-type DeserializeFunc func (buf []byte, v interface{}) error
-type SerializeFunc func (v interface{}) ([]byte, error)
-type EnDecoder struct {
-	Encode SerializeFunc
-	Decode DeserializeFunc
-}
 type KeyPair struct {
 	PrivateKey crypto.PrivateKey
 	PublicKey crypto.PublicKey
