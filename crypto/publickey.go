@@ -16,7 +16,7 @@ func NewPublicKey(pubString string) (*PublicKey, error) {
 	checkSum := make([]byte, 4)
 	copy(checkSum, decode[len(decode)-4:])
 	data := decode[:len(decode)-4]
-	if bytes.Equal(calculateCheckSum(data), checkSum) {
+	if !bytes.Equal(calculateCheckSum(data), checkSum) {
 		return nil, fmt.Errorf("invalid checksum")
 	}
 	return &PublicKey{data}, nil

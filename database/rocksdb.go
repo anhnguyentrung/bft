@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const defaultPath  = "db"
+const defaultPath  = "db2"
 
 type RocksDB struct {
 	db *gorocksdb.DB

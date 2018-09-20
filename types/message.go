@@ -15,21 +15,14 @@ const (
 	SyncRequestMessage
 )
 
-type MessageHeader struct {
-	Type 	MessageType // 1 byte
-	Length  uint32  	// 4 bytes
-}
 type Message struct {
-	Header MessageHeader
+	Type 	MessageType
 	Payload []byte
 }
 
 func NewMessage(messageType MessageType, payload []byte) Message {
 	return Message{
-		Header: MessageHeader{
-			Type: messageType,
-			Length: uint32(len(payload)),
-		},
+		Type: messageType,
 		Payload: payload,
 	}
 }
@@ -38,6 +31,7 @@ func (message Message) ToHandshake(decoder DeserializeFunc) *Handshake {
 	handshake := Handshake{}
 	err := decoder(message.Payload, &handshake)
 	if err != nil {
+		log.Println(err)
 		return nil
 	}
 	return &handshake

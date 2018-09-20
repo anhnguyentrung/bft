@@ -88,11 +88,8 @@ func (c *Connection) readLoop() {
 			return
 		}
 		if str != "\n" {
-			message := types.Message{
-				Header:		types.MessageHeader{},
-				Payload: 	make([]byte, 0),
-			}
-			err = encoding.UnmarshalBinaryMessage([]byte(str), &message)
+			message := types.Message{}
+			err = encoding.UnmarshalBinary([]byte(str), &message)
 			if err != nil {
 				log.Fatal(err)
 			}

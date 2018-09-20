@@ -45,7 +45,7 @@ func (cm *ConsensusManager) head() *types.Block {
 }
 
 func (cm *ConsensusManager) Receive(message types.Message) {
-	messageType := message.Header.Type
+	messageType := message.Type
 	switch messageType {
 	case types.VoteMessage:
 		vote := message.ToVote(encoding.UnmarshalBinary)

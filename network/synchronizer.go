@@ -50,13 +50,13 @@ func (synchronizer *Synchronizer) setState(state SyncState) {
 
 func (synchronizer *Synchronizer) requestBlocks(c *Connection) {
 	blockStore := database.GetBlockStore()
-	lastHeight := blockStore.Head().Height()
+	lastHeight := blockStore.LastHeight()
 	if lastHeight < synchronizer.lastRequestedHeight && c.IsAvailable() {
 		return
 	}
 	if !c.IsAvailable() {
 		log.Println("This connection is not available to sync")
-		synchronizer.knownHeight = blockStore.Head().Height()
+		synchronizer.knownHeight = blockStore.LastHeight()
 		synchronizer.lastRequestedHeight = 0
 		synchronizer.setState(InSync)
 		return

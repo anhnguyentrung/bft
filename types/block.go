@@ -4,6 +4,7 @@ import (
 	"time"
 	"bft/crypto"
 	"bytes"
+	"crypto/sha256"
 )
 
 type BlockHeightId struct {
@@ -28,14 +29,20 @@ type BlockHeader struct {
 	PreviousId Hash
 	Proposer Validator
 	Timestamp time.Time
+	Commits []Vote
 }
 
 func (blockHeader BlockHeader) Height() uint64 {
-	return blockHeader.Height()
+	return blockHeader.HeightId.Height
 }
 
 func (blockHeader BlockHeader) Id() Hash {
 	return blockHeader.HeightId.Id
+}
+
+func (blockHeader BlockHeader) CalculateId(encoder SerializeFunc) Hash {
+	buf, _ := encoder(blockHeader)
+	return sha256.Sum256(buf)
 }
 
 type SignedBlockHeader struct {
@@ -45,7 +52,21 @@ type SignedBlockHeader struct {
 
 type Block struct {
 	SignedHeader SignedBlockHeader
-	Commits []Vote
+}
+
+func NewGenesisBlock(genesis Genesis, encoder SerializeFunc) *Block {
+	genesisHeader := BlockHeader{}
+	genesisHeader.HeightId.Height = 1
+	genesisHeader.Proposer = genesis.Proposer
+	genesisHeader.Timestamp = genesis.Timestamp
+	id := genesisHeader.CalculateId(encoder)
+	genesisHeader.HeightId.Id = id
+	signedHeader := SignedBlockHeader{
+		Header: genesisHeader,
+	}
+	return &Block{
+		signedHeader,
+	}
 }
 
 func (sb *Block) Header() BlockHeader{

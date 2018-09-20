@@ -21,6 +21,7 @@ import (
 	"sync"
 	"bft/database"
 	"bft/encoding"
+	crypto2 "bft/crypto"
 )
 
 type NetManager struct {
@@ -34,15 +35,18 @@ type NetManager struct {
 	address			string
 	chainId 		types.Hash
 	consensusManager *consensus.ConsensusManager
+	synchonizer		*Synchronizer
 	dispatcher		*Dispatcher
 }
 
 func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManager {
 	netManager := &NetManager{
-		ipAddress:			ipAddress,
-		listenPort:			listenPort,
-		targets:			targets,
-		connections:		make(map[string]*Connection),
+		ipAddress:		ipAddress,
+		listenPort:		listenPort,
+		targets:		targets,
+		connections:	make(map[string]*Connection),
+		chainId: 		database.GetBlockStore().ChainId(),
+		synchonizer:	NewSynchronizer(),
 	}
 	////TODO: get initial validators
 	//validators := types.Validators{}
@@ -51,6 +55,9 @@ func NewNetManager(ipAddress string, listenPort int, targets []string) *NetManag
 	//	encoding.UnmarshalBinary,
 	//}
 	////TODO: load key pair from wallet
+	privateKey, _ := crypto2.NewRandomPrivateKey()
+	netManager.keyPair.PrivateKey = *privateKey
+	netManager.keyPair.PublicKey = *privateKey.PublicKey()
 	//signer := netManager.keyPair.PrivateKey.Sign
 	//address := netManager.keyPair.PublicKey.Address()
 	//netManager.consensusManager = consensus.NewConsensusManager(validators, address)
@@ -110,7 +117,7 @@ func (nm *NetManager) handleOutStream(s net.Stream) {
 }
 
 func (nm *NetManager) onReceive(message types.Message, connection *Connection) {
-	messageType := message.Header.Type
+	messageType := message.Type
 	switch messageType {
 	case types.HandshakeMessage:
 		handshake := message.ToHandshake(encoding.UnmarshalBinary)
@@ -185,9 +192,11 @@ func (nm *NetManager) sendHandshake(c *Connection) {
 	}
 	message := types.NewMessage(types.HandshakeMessage, payload)
 	c.Send(message)
+	log.Println("sent handshake")
 }
 
 func (nm *NetManager) handleHandshake(handshake *types.Handshake, connection *Connection) {
+	log.Println("received handshake")
 	if handshake == nil {
 		log.Println("unable to parse handshake")
 		return
@@ -213,6 +222,7 @@ func (nm *NetManager) handleHandshake(handshake *types.Handshake, connection *Co
 		nm.sendHandshake(connection)
 	}
 	connection.lastReceivedHandshake = handshake
+	//nm.synchonizer.handleHandshake(handshake, connection)
 }
 
 func loadIdentity(fileName string) (crypto.PrivKey, error) {

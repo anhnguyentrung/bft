@@ -68,27 +68,3 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 	d.Extension = extension
 	return d.Deserialize(v)
 }
-
-func UnmarshalBinaryMessage(buf []byte, message *types.Message) error {
-	pos := 0
-	if len(buf) < 1 {
-		return fmt.Errorf("can't read message type")
-	}
-	typeBuf := buf[pos:1]
-	pos += 1
-	messageType := types.MessageType(typeBuf[0])
-	if len(buf) < pos + 4 {
-		return fmt.Errorf("can't read message length")
-	}
-	lenBuf := buf[pos:pos+4]
-	pos += 4
-	length := binary.BigEndian.Uint32(lenBuf)
-	if len(buf) < pos + int(length) {
-		return fmt.Errorf("can't read message data")
-	}
-	payload := buf[pos:pos + int(length)]
-	message.Header.Type = messageType
-	message.Header.Length = length
-	message.Payload = payload
-	return nil
-}

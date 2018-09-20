@@ -14,6 +14,7 @@ const LastHeightKey = "lastheight"
 type BlockStore struct {
 	db *RocksDB
 	head *types.Block
+	chainId types.Hash
 }
 
 var blockStore = NewBlockStore()
@@ -21,14 +22,25 @@ var blockStore = NewBlockStore()
 func NewBlockStore() *BlockStore {
 	db := GetDB()
 	db.AddCF(BlockStoreCF)
-	return &BlockStore{
-		GetDB(),
-		nil,
+	bs := &BlockStore{
+		db: GetDB(),
 	}
+	if bs.LastHeight() == 0 {
+		//Add genesis block
+		genesis := types.NewGenesis()
+		bs.chainId = genesis.ChainId(encoding.MarshalBinary)
+		genesisBlock := types.NewGenesisBlock(genesis, encoding.MarshalBinary)
+		bs.AddBlock(genesisBlock)
+	}
+	return bs
 }
 
 func GetBlockStore() *BlockStore {
 	return blockStore
+}
+
+func (bs *BlockStore) ChainId() types.Hash {
+	return bs.chainId
 }
 
 func (bs *BlockStore) Head() *types.Block {
