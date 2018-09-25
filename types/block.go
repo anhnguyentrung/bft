@@ -5,6 +5,7 @@ import (
 	"bft/crypto"
 	"bytes"
 	"crypto/sha256"
+	"log"
 )
 
 type BlockHeightId struct {
@@ -69,18 +70,34 @@ func NewGenesisBlock(genesis Genesis, encoder SerializeFunc) *Block {
 	}
 }
 
-func (sb *Block) Header() BlockHeader{
-	return sb.SignedHeader.Header
+func (block *Block) Header() *BlockHeader{
+	return &block.SignedHeader.Header
 }
 
-func (sb *Block) Height() uint64 {
-	return sb.Header().Height()
+func (block *Block) Height() uint64 {
+	return block.Header().Height()
 }
 
-func (sb *Block) Id() Hash {
-	return sb.Header().Id()
+func (block *Block) Id() Hash {
+	return block.Header().Id()
 }
 
-func (sb *Block) Signature() crypto.Signature {
-	return sb.SignedHeader.Signature
+func (block *Block) Signature() crypto.Signature {
+	return block.SignedHeader.Signature
+}
+
+func (block *Block) IsValid() bool {
+	if block == nil {
+		log.Println("block should be not nil")
+		return false
+	}
+	if !block.Header().HeightId.IsValid() {
+		log.Println("block's height or id is invalid")
+		return false
+	}
+	if !block.Signature().IsValid() {
+		log.Println("block's signature is invalid")
+		return false
+	}
+	return true
 }

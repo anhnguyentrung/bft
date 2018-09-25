@@ -10,6 +10,7 @@ import (
 	"time"
 	"bft/database"
 	"bft/encoding"
+	"fmt"
 )
 
 type BroadcastFunc func(message types.Message)
@@ -28,6 +29,7 @@ type ConsensusManager struct {
 func NewConsensusManager(validators types.Validators, address string) *ConsensusManager {
 	cm := &ConsensusManager{}
 	cm.validatorSet = types.NewValidatorSet(validators, address)
+	cm.blockStore = database.GetBlockStore()
 	cm.f = int(math.Floor(float64(cm.validatorSet.Size())/3))
 	return cm
 }
@@ -180,10 +182,31 @@ func (cm *ConsensusManager) enterCommitted() {
 	// lock proposal block
 	currentState.lock()
 	currentState.setSate(Committed)
-	proposal := cm.currentState.proposal
+	proposal := currentState.proposal
 	if proposal != nil {
 		//TODO: Commit proposal block
+		commits := make([]types.Vote, 0)
+		for _, vote := range currentState.commits().Votes() {
+			commits = append(commits, vote)
+		}
+		if err := cm.commitBlock(&proposal.Block, commits); err != nil {
+			currentState.unLock()
+			cm.sendRoundChange(currentState.round() + 1)
+			return
+		}
 	}
+}
+
+func (cm *ConsensusManager) commitBlock(block *types.Block, commits []types.Vote) error {
+	if !block.IsValid() {
+		return fmt.Errorf("block is invalid")
+	}
+	header := block.Header()
+	if len(commits) < 2*cm.f + 1 {
+		return fmt.Errorf("there are not enough commit votes")
+	}
+	header.Commits = commits
+	return cm.blockStore.AddBlock(block)
 }
 
 func (cm *ConsensusManager) onRoundChange(vote types.Vote) {

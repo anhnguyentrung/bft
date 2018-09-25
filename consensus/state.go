@@ -109,6 +109,10 @@ func (cs *ConsensusState) lock() {
 	}
 }
 
+func (cs *ConsensusState) unLock() {
+	cs.lockedHeightId = types.BlockHeightId{}
+}
+
 func (cs *ConsensusState) isLocked() bool {
 	if !cs.lockedHeightId.IsValid() {
 		return false

@@ -49,7 +49,7 @@ func (signature *Signature) Verify(address string, hash []byte) bool {
 	return false
 }
 
-func (signature *Signature) IsValid() bool {
+func (signature Signature) IsValid() bool {
 	emptySig := make([]byte, 65, 65)
 	return !bytes.Equal(signature.Data, emptySig)
 }
