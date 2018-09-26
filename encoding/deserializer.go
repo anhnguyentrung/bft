@@ -19,7 +19,7 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 	extension := func(v interface{}) error {
 		rv := reflect.Indirect(reflect.ValueOf(v))
 		switch v.(type) {
-		case *types.MessageType:
+		case *types.MessageType, *types.VoteType:
 			bytes, err := d.ReadBytes(1)
 			if err != nil {
 				return err

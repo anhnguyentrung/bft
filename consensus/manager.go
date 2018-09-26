@@ -394,3 +394,8 @@ func (cm *ConsensusManager) sendRoundChange(round uint64) {
 	cm.changeView(newView)
 	cm.sendVote(types.RoundChange)
 }
+
+func (cm *ConsensusManager) address() string {
+	validatorSet := cm.validatorSet
+	return validatorSet.Self().Address
+}

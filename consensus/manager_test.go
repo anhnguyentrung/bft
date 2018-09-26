@@ -7,9 +7,19 @@ import (
 	"time"
 	"bft/encoding"
 	"fmt"
+	"log"
 )
 
-var managers = consensusManagers()
+type tester struct {
+	managers []*ConsensusManager
+}
+
+func newTester() *tester {
+	t := &tester{}
+	managers := consensusManagers()
+	t.managers = managers
+	return t
+}
 
 func newValidator(privateKey *crypto.PrivateKey) types.Validator {
 	return types.Validator{
@@ -31,7 +41,6 @@ func consensusManagers() []*ConsensusManager {
 	for i := 0; i < 4; i++ {
 		cm := NewConsensusManager(validators, privateKeys[i].PublicKey().Address())
 		cm.SetSigner(privateKeys[i].Sign)
-		cm.SetBroadcaster(broadcast)
 		view := types.View{
 			1,
 			2,
@@ -45,7 +54,8 @@ func consensusManagers() []*ConsensusManager {
 }
 
 // return manager of the proposer and it's index
-func managerOfProposer() (*ConsensusManager, int) {
+func (tester *tester) managerOfProposer() (*ConsensusManager, int) {
+	managers := tester.managers
 	for i, manager := range managers {
 		if manager.isProposer() {
 			return manager, i
@@ -54,19 +64,19 @@ func managerOfProposer() (*ConsensusManager, int) {
 	return nil, -1
 }
 
-func getProposer() (types.Validator, error) {
-	manager, _ := managerOfProposer()
+func (tester *tester) getProposer() (types.Validator, error) {
+	manager, _ := tester.managerOfProposer()
 	if manager == nil {
 		return types.Validator{}, fmt.Errorf("there's not a proposer")
 	}
 	return manager.validatorSet.Self(), nil
 }
 
-func newProposal(round, height uint64) (*types.Proposal, error) {
-	manager, _ := managerOfProposer()
+func (tester *tester) newProposal(round, height uint64) (*types.Proposal, error) {
+	manager, _ := tester.managerOfProposer()
 	head := manager.head()
 	blockHeightId := types.BlockHeightId{ Height: head.Height() + 1 }
-	proposer, err := getProposer()
+	proposer, err := tester.getProposer()
 	if err != nil {
 		return nil, err
 	}
@@ -95,7 +105,8 @@ func newProposal(round, height uint64) (*types.Proposal, error) {
 }
 
 func TestParseAndVerifyProposal(t *testing.T) {
-	proposal, err := newProposal(1, 2)
+	tester := newTester()
+	proposal, err := tester.newProposal(1, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -109,6 +120,7 @@ func TestParseAndVerifyProposal(t *testing.T) {
 		t.Fatal("can not parse proposal")
 	}
 	proposer := proposal.Proposer()
+	managers := tester.managers
 	for _, cm := range managers {
 		if !cm.validatorSet.IsProposer(proposer) {
 			t.Fatal("Don't accept a proposal from unknown proposer")
@@ -120,11 +132,14 @@ func TestParseAndVerifyProposal(t *testing.T) {
 }
 
 func TestEnterPrePrepared(t *testing.T) {
-	proposal, err := newProposal(1, 2)
+	tester := newTester()
+	proposal, err := tester.newProposal(1, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
+	managers := tester.managers
 	for _, cm := range managers {
+		cm.SetBroadcaster(broadcastNothing)
 		cm.enterPrePrepared(proposal)
 		currentState := cm.currentState.stateType
 		currentProposal := cm.currentState.proposal
@@ -140,6 +155,48 @@ func TestEnterPrePrepared(t *testing.T) {
 	}
 }
 
-func broadcast(message types.Message) {
+func TestEnterPrepared(t *testing.T) {
+	tester := newTester()
+	proposal, err := tester.newProposal(1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	managers := tester.managers
+	tester.setBroadcaster(tester.broadcastPrepare)
+	for _, cm := range managers {
+		cm.enterPrePrepared(proposal)
+	}
+	state := managers[0].currentState.stateType
+	if state != Prepared {
+		t.Fatalf("expected prepared, got %s", state.String())
+	}
+}
 
+func (tester *tester) setBroadcaster(broadcastFunc BroadcastFunc) {
+	managers := tester.managers
+	for _, cm := range managers {
+		cm.SetBroadcaster(broadcastFunc)
+	}
+}
+
+func broadcastNothing(message types.Message) {
+}
+
+func (tester *tester) broadcastPrepare(message types.Message) {
+	if message.Type == types.VoteMessage {
+		vote := message.ToVote(encoding.UnmarshalBinary)
+		if vote == nil {
+			log.Println("broadcast a nil prepare message")
+			return
+		}
+		if vote.Type != types.Prepare {
+			log.Println("it's not a prepare message")
+			return
+		}
+		for _, manager := range tester.managers {
+			if manager.address() != vote.Address {
+				manager.Receive(message)
+			}
+		}
+	}
 }

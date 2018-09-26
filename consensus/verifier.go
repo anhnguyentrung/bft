@@ -35,13 +35,15 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) error {
 }
 
 func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {
+	currentState := cm.currentState
 	// check prepare's round and height
-	if vote.View.Compare(cm.currentState.view) != 0 {
+	if vote.View.Compare(currentState.view) != 0 {
 		log.Println("prepare's round and height are invalid")
 		return false
 	}
 	// check current state
-	if cm.currentState.stateType == NewRound {
+	if currentState.stateType == NewRound {
+		log.Println("state should not be newround when receiving a prepare message")
 		return false
 	}
 	//// is prepare from a valid validator?
@@ -50,7 +52,9 @@ func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {
 	//	return false
 	//}
 	// verify block id
-	if !vote.BlockId.Equals(cm.currentState.proposal.BlockId()) {
+	proposal := currentState.proposal
+	if !vote.BlockId.Equals(currentState.proposal.BlockId()) {
+		log.Printf("vote's block id %s does not match with local state's block id %s\n", vote.BlockId.String(), proposal.BlockId().String())
 		return false
 	}
 	return true

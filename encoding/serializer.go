@@ -16,6 +16,8 @@ func MarshalBinary(v interface{}) ([]byte, error) {
 		switch t := v.(type) {
 		case types.MessageType:
 			return s.WriteBytes([]byte{byte(t)})
+		case types.VoteType:
+			return s.WriteBytes([]byte{byte(t)})
 		case types.Hash:
 			return s.WriteBytes(t[:])
 		case crypto.Signature:
