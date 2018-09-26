@@ -31,11 +31,13 @@ func consensusManagers() []*ConsensusManager {
 	for i := 0; i < 4; i++ {
 		cm := NewConsensusManager(validators, privateKeys[i].PublicKey().Address())
 		cm.SetSigner(privateKeys[i].Sign)
+		cm.SetBroadcaster(broadcast)
 		view := types.View{
 			1,
 			2,
 		}
 		cm.currentState = NewConsensusState(view, cm.validatorSet)
+		cm.currentState.setSate(NewRound)
 		cm.validatorSet.CalculateProposer(view.Round)
 		cms = append(cms, cm)
 	}
@@ -113,6 +115,27 @@ func TestParseAndVerifyProposal(t *testing.T) {
 		}
 		if err := cm.verifyProposal(proposal); err != nil {
 			t.Fatal(err)
+		}
+	}
+}
+
+func TestEnterPrePrepared(t *testing.T) {
+	proposal, err := newProposal(1, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, cm := range managers {
+		cm.enterPrePrepared(proposal)
+		currentState := cm.currentState.stateType
+		currentProposal := cm.currentState.proposal
+		if currentState != PrePrepared {
+			t.Fatalf("expected preprepared, got %s", cm.currentState.stateType.String())
+		}
+		if currentProposal == nil {
+			t.Fatal("current's state should have a proposal")
+		}
+		if !currentProposal.BlockHeightId().Equals(proposal.BlockHeightId()) {
+			t.Fatalf("expected height-id %s, got %s", proposal.BlockHeightId().String(), currentProposal.BlockHeightId().String())
 		}
 	}
 }

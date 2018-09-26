@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"log"
+	"fmt"
 )
 
 type BlockHeightId struct {
@@ -23,6 +24,10 @@ func (blockHeightId BlockHeightId) IsValid() bool {
 
 func (blockHeightId BlockHeightId) Equals(target BlockHeightId) bool {
 	return blockHeightId.Height == target.Height && bytes.Equal(blockHeightId.Id[:], target.Id[:])
+}
+
+func (blockHeightId BlockHeightId) String() string {
+	return fmt.Sprintf("%v-%v", blockHeightId.Height, blockHeightId.Id.String())
 }
 
 type BlockHeader struct {
