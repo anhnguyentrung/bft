@@ -3,38 +3,35 @@ package consensus
 import (
 	"log"
 	"bft/types"
+	"fmt"
 )
 
-func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) bool {
+func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) error {
 	if proposal == nil {
-		return false
+		return fmt.Errorf("proposal should be not nil")
 	}
 	// Does blockchain have a head
 	head := cm.head()
 	if head == nil {
-		log.Println("blockchain hasn't a head")
-		return false
+		return fmt.Errorf("blockchain hasn't a head")
 	}
 	blockHeader := proposal.Block.Header()
 	// Are block's height and hash valid
 	if !blockHeader.HeightId.IsValid() {
-		log.Println("block's height or hash is invalid")
-		return false
+		return fmt.Errorf("block's height or hash is invalid")
 	}
 	// Does block proposal's previous id equal head's id
-	if !blockHeader.PreviousId.Equals(head.Id()) || blockHeader.Height() != head.Height() {
-		log.Println("unlinkable block")
-		return false
+	if !blockHeader.PreviousId.Equals(head.Id()) || blockHeader.Height() != head.Height() + 1 {
+		return fmt.Errorf("unlinkable block")
 	}
 	publicKey := proposal.Proposer().PublicKey
 	// Is block signed by proposer
 	blockId := proposal.BlockId()
 	signature := proposal.Block.Signature()
 	if !signature.Verify(publicKey.Address(), blockId[:]) {
-		log.Println("block's signature is wrong")
-		return false
+		fmt.Errorf("block's signature is wrong")
 	}
-	return true
+	return nil
 }
 
 func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {

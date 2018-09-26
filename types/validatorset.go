@@ -61,6 +61,7 @@ func (vs *ValidatorSet) GetValidators() Validators {
 func (vs *ValidatorSet) IsProposer(validator Validator) bool {
 	i, v := vs.GetByAddress(validator.Address)
 	if i == -1 {
+		log.Printf("wrong proposer. expected %s, got %s\n", vs.proposer.Address, validator.Address)
 		return false
 	}
 	return v.Equals(*vs.proposer)

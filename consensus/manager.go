@@ -93,7 +93,8 @@ func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 		return
 	}
 	// check proposal
-	if !cm.verifyProposal(proposal) {
+	if err := cm.verifyProposal(proposal); err != nil {
+		log.Println(err)
 		//TODO: handle the future block
 		cm.sendRoundChange(cm.currentState.round() + 1)
 		return
@@ -194,6 +195,7 @@ func (cm *ConsensusManager) enterCommitted() {
 			cm.sendRoundChange(currentState.round() + 1)
 			return
 		}
+		cm.startNewRound(0)
 	}
 }
 
@@ -255,20 +257,21 @@ func (cm *ConsensusManager) isProposer() bool {
 }
 
 func (cm *ConsensusManager) startNewRound(round uint64) {
-	if cm.head == nil {
+	head := cm.head()
+	if head == nil {
 		log.Fatal("blockchain must have a head")
 	}
 	newView := types.View{
 		0,
-		cm.head().Height() + 1,
+		head.Height() + 1,
 	}
 	if cm.currentState == nil {
 		log.Println("initial round")
 		cm.currentState = NewConsensusState(newView, cm.validatorSet)
-	} else if cm.head().Height() >= cm.currentState.height() {
+	} else if head.Height() >= cm.currentState.height() {
 		log.Println("catch up latest proposal")
 		cm.currentState = NewConsensusState(newView, cm.validatorSet)
-	} else if cm.head().Height() == cm.currentState.height() - 1 {
+	} else if head.Height() == cm.currentState.height() - 1 {
 		if round == 0 {
 			return
 		}
@@ -328,7 +331,8 @@ func (cm *ConsensusManager) handleTimeout() {
 			return
 		}
 	}
-	if cm.head != nil && cm.head().Height() >= cm.currentState.height() {
+	head := cm.head()
+	if head != nil && head.Height() >= cm.currentState.height() {
 		cm.startNewRound(0)
 	} else {
 		cm.sendRoundChange(cm.currentState.round() + 1)
