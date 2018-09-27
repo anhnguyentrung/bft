@@ -172,7 +172,7 @@ func TestEnterPrepared(t *testing.T) {
 	}
 }
 
-func TestChangeRound(t *testing.T) {
+func TestSendLockedProposal(t *testing.T) {
 	tester := newTester()
 	err := tester.enterPrepared()
 	if err != nil {
@@ -188,12 +188,8 @@ func TestChangeRound(t *testing.T) {
 		cm.sendRoundChange(cm.currentState.round() + 1)
 	}
 	state := firstManager.currentState.stateType
-	if state != NewRound {
-		t.Fatalf("expected new-round, got %s", state.String())
-	}
-	for _, cm := range tester.managers {
-		state := cm.currentState.stateType
-		t.Log(state.String())
+	if state != Prepared {
+		t.Fatalf("expected prepared, got %s", state.String())
 	}
 }
 

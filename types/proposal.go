@@ -30,14 +30,8 @@ func (v View) Compare(target View) int {
 
 type Proposal struct {
 	View 	View
+	Sender  Validator
 	Block 	Block
-}
-
-func (p *Proposal) DataIgnoredSignature() *Proposal {
-	return &Proposal{
-		p.View,
-		p.Block,
-	}
 }
 
 func (p *Proposal) BlockId() Hash {

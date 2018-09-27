@@ -126,6 +126,12 @@ func (cs *ConsensusState) isLocked() bool {
 func (cs *ConsensusState) updateView(view types.View) {
 	if cs.view.Compare(view) != 0 {
 		cs.view = view
+		for _, votSet := range cs.roundChanges {
+			votSet.ChangeView(view)
+		}
+		for _, votSet := range cs.prepareCommits {
+			votSet.ChangeView(view)
+		}
 		if !cs.isLocked() {
 			cs.proposal = nil
 		}

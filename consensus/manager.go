@@ -86,9 +86,9 @@ func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 		}
 		return
 	}
-	proposer := proposal.Proposer()
+	sender := proposal.Sender
 	// Is proposal from valid proposer
-	if !cm.validatorSet.IsProposer(proposer) {
+	if !cm.validatorSet.IsProposer(sender) {
 		log.Println("Don't accept a proposal from unknown proposer")
 		return
 	}
@@ -380,6 +380,8 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 }
 
 func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
+	proposal.View = cm.currentState.view
+	proposal.Sender = cm.validatorSet.Self()
 	// self-processing
 	cm.onProposal(&proposal)
 	// send to others
