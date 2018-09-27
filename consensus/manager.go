@@ -122,7 +122,7 @@ func (cm *ConsensusManager) enterPrePrepared(proposal *types.Proposal) {
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
-	if !cm.verifyPrepare(vote) {
+	if err := cm.verifyVote(vote); err != nil {
 		return
 	}
 	cm.currentState.applyVote(vote)
@@ -156,7 +156,7 @@ func (cm *ConsensusManager) canEnterPrepared() bool {
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
-	if !cm.verifyCommit(vote) {
+	if err := cm.verifyVote(vote); err != nil {
 		return
 	}
 	cm.currentState.applyVote(vote)
@@ -341,7 +341,7 @@ func (cm *ConsensusManager) handleTimeout() {
 
 func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 	voter := cm.validatorSet.Self()
-	view := cm.currentState.proposal.View
+	view := cm.currentState.view
 	blockId := types.Hash{}
 	if voteType != types.RoundChange {
 		blockId = cm.currentState.proposal.BlockId()

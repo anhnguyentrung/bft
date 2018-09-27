@@ -1,7 +1,6 @@
 package consensus
 
 import (
-	"log"
 	"bft/types"
 	"fmt"
 )
@@ -34,17 +33,16 @@ func (cm *ConsensusManager) verifyProposal(proposal *types.Proposal) error {
 	return nil
 }
 
-func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {
+// verify prepare and commit message
+func (cm *ConsensusManager) verifyVote(vote types.Vote) error {
 	currentState := cm.currentState
 	// check prepare's round and height
 	if vote.View.Compare(currentState.view) != 0 {
-		log.Println("prepare's round and height are invalid")
-		return false
+		return fmt.Errorf("prepare's round and height are invalid")
 	}
 	// check current state
 	if currentState.stateType == NewRound {
-		log.Println("state should not be newround when receiving a prepare message")
-		return false
+		return fmt.Errorf("state should not be newround when receiving a prepare message")
 	}
 	//// is prepare from a valid validator?
 	//if index, _ := cm.validatorSet.GetByAddress(vote.Address); index == -1 {
@@ -54,32 +52,9 @@ func (cm *ConsensusManager) verifyPrepare(vote types.Vote) bool {
 	// verify block id
 	proposal := currentState.proposal
 	if !vote.BlockId.Equals(currentState.proposal.BlockId()) {
-		log.Printf("vote's block id %s does not match with local state's block id %s\n", vote.BlockId.String(), proposal.BlockId().String())
-		return false
+		return fmt.Errorf("vote's block id %s does not match with local state's block id %s\n", vote.BlockId.String(), proposal.BlockId().String())
 	}
-	return true
-}
-
-func (cm *ConsensusManager) verifyCommit(vote types.Vote) bool {
-	// check commit's round and height
-	if vote.View.Compare(cm.currentState.view) != 0 {
-		log.Println("commit's round and height are invalid")
-		return false
-	}
-	// check current state
-	if cm.currentState.stateType == NewRound {
-		return false
-	}
-	//// is commit from a valid validator?
-	//if index, _ := cm.validatorSet.GetByAddress(vote.Address); index == -1 {
-	//	log.Println("Don't accept commit message from a unknown validator")
-	//	return false
-	//}
-	// verify block id
-	if !vote.BlockId.Equals(cm.currentState.proposal.BlockId()) {
-		return false
-	}
-	return true
+	return nil
 }
 
 func (cm *ConsensusManager) verifyRoundChange(vote types.Vote) bool {

@@ -166,9 +166,13 @@ func TestEnterPrepared(t *testing.T) {
 	if state != Prepared {
 		t.Fatalf("expected prepared, got %s", state.String())
 	}
+	for _, cm := range tester.managers {
+		prepares := cm.currentState.prepares()
+		t.Log(prepares.Size())
+	}
 }
 
-func TestEnterPreparedWhenLocking(t *testing.T) {
+func TestChangeRound(t *testing.T) {
 	tester := newTester()
 	err := tester.enterPrepared()
 	if err != nil {
@@ -179,8 +183,18 @@ func TestEnterPreparedWhenLocking(t *testing.T) {
 	if !firstManager.currentState.isLocked() {
 		t.Fatal("first manager should be locked")
 	}
-
-
+	tester.setBroadcaster(tester.broadcastRoundChange)
+	for _, cm := range tester.managers {
+		cm.sendRoundChange(cm.currentState.round() + 1)
+	}
+	state := firstManager.currentState.stateType
+	if state != NewRound {
+		t.Fatalf("expected new-round, got %s", state.String())
+	}
+	for _, cm := range tester.managers {
+		state := cm.currentState.stateType
+		t.Log(state.String())
+	}
 }
 
 func (tester *tester) enterPrepared() error {
@@ -203,8 +217,7 @@ func (tester *tester) setBroadcaster(broadcastFunc BroadcastFunc) {
 	}
 }
 
-func broadcastNothing(message types.Message) {
-}
+func broadcastNothing(message types.Message) {}
 
 func (tester *tester) broadcastPrepare(message types.Message) {
 	if message.Type == types.VoteMessage {
@@ -214,7 +227,6 @@ func (tester *tester) broadcastPrepare(message types.Message) {
 			return
 		}
 		if vote.Type != types.Prepare {
-			log.Println("it's not a prepare message")
 			return
 		}
 		for _, manager := range tester.managers {
@@ -231,13 +243,10 @@ func (tester *tester) broadcastRoundChange(message types.Message) {
 			return
 		}
 		if vote.Type != types.RoundChange {
-			log.Println("it's not a round-change message")
 			return
 		}
 		for _, manager := range tester.managers {
-			if manager.address() != vote.Address {
-				manager.Receive(message)
-			}
+			manager.Receive(message)
 		}
 	}
 }

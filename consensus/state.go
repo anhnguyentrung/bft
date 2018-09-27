@@ -95,7 +95,10 @@ func (cs *ConsensusState) applyRoundChange(vote types.Vote, validatorSet *types.
 	if _, ok := cs.roundChanges[round]; !ok {
 		cs.roundChanges[round] = types.NewVoteSet(view, vote.Type, validatorSet)
 	}
-	cs.roundChanges[round].AddVote(vote, true)
+	err := cs.roundChanges[round].AddVote(vote, true)
+	if err != nil {
+		log.Println(err)
+	}
 }
 
 func (cs *ConsensusState) proposalHeightId() types.BlockHeightId {
