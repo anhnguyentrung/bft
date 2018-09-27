@@ -367,6 +367,9 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 		return
 	}
 	vote.Signature = sig
+	// self-processing
+	cm.onVote(&vote)
+	// send to others
 	payload, err := encoding.MarshalBinary(vote)
 	if err != nil {
 		log.Println(err)
@@ -377,6 +380,9 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 }
 
 func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
+	// self-processing
+	cm.onProposal(&proposal)
+	// send to others
 	payload, err := encoding.MarshalBinary(proposal)
 	if err != nil {
 		log.Println(err)

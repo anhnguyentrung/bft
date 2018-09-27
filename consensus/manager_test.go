@@ -141,10 +141,10 @@ func TestEnterPrePrepared(t *testing.T) {
 	for _, cm := range managers {
 		cm.SetBroadcaster(broadcastNothing)
 		cm.enterPrePrepared(proposal)
-		currentState := cm.currentState.stateType
-		currentProposal := cm.currentState.proposal
-		if currentState != PrePrepared {
-			t.Fatalf("expected preprepared, got %s", cm.currentState.stateType.String())
+		currentState := cm.currentState
+		currentProposal := currentState.proposal
+		if currentState.stateType != PrePrepared {
+			t.Fatalf("expected preprepared, got %s", currentState.stateType.String())
 		}
 		if currentProposal == nil {
 			t.Fatal("current's state should have a proposal")
@@ -157,19 +157,43 @@ func TestEnterPrePrepared(t *testing.T) {
 
 func TestEnterPrepared(t *testing.T) {
 	tester := newTester()
-	proposal, err := tester.newProposal(1, 2)
+	err := tester.enterPrepared()
 	if err != nil {
 		t.Fatal(err)
+	}
+	firstManager := tester.managers[0]
+	state := firstManager.currentState.stateType
+	if state != Prepared {
+		t.Fatalf("expected prepared, got %s", state.String())
+	}
+}
+
+func TestEnterPreparedWhenLocking(t *testing.T) {
+	tester := newTester()
+	err := tester.enterPrepared()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// first manager should be locked
+	firstManager := tester.managers[0]
+	if !firstManager.currentState.isLocked() {
+		t.Fatal("first manager should be locked")
+	}
+
+
+}
+
+func (tester *tester) enterPrepared() error {
+	proposal, err := tester.newProposal(1, 2)
+	if err != nil {
+		return err
 	}
 	managers := tester.managers
 	tester.setBroadcaster(tester.broadcastPrepare)
 	for _, cm := range managers {
 		cm.enterPrePrepared(proposal)
 	}
-	state := managers[0].currentState.stateType
-	if state != Prepared {
-		t.Fatalf("expected prepared, got %s", state.String())
-	}
+	return nil
 }
 
 func (tester *tester) setBroadcaster(broadcastFunc BroadcastFunc) {
@@ -191,6 +215,23 @@ func (tester *tester) broadcastPrepare(message types.Message) {
 		}
 		if vote.Type != types.Prepare {
 			log.Println("it's not a prepare message")
+			return
+		}
+		for _, manager := range tester.managers {
+			manager.Receive(message)
+		}
+	}
+}
+
+func (tester *tester) broadcastRoundChange(message types.Message) {
+	if message.Type == types.VoteMessage {
+		vote := message.ToVote(encoding.UnmarshalBinary)
+		if vote == nil {
+			log.Println("broadcast a nil round-change message")
+			return
+		}
+		if vote.Type != types.RoundChange {
+			log.Println("it's not a round-change message")
 			return
 		}
 		for _, manager := range tester.managers {
