@@ -231,8 +231,8 @@ func loadIdentity(fileName string) (crypto.PrivKey, error) {
 		return generateNewIdentity(fileName)
 	}
 	defer f.Close()
-	buf, _ := ioutil.ReadAll(f)
-	return crypto.UnmarshalPrivateKey(buf)
+	b, _ := ioutil.ReadAll(f)
+	return crypto.UnmarshalPrivateKey(b)
 }
 
 func generateNewIdentity(fileName string) (crypto.PrivKey, error) {
@@ -241,11 +241,11 @@ func generateNewIdentity(fileName string) (crypto.PrivKey, error) {
 	if err != nil {
 		return nil, err
 	}
-	buf, err := crypto.MarshalPrivateKey(priv)
+	b, err := crypto.MarshalPrivateKey(priv)
 	if err != nil {
 		return nil, err
 	}
-	err = ioutil.WriteFile(fileName, buf, 0644)
+	err = ioutil.WriteFile(fileName, b, 0644)
 	if err != nil {
 		return nil, err
 	}

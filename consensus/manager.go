@@ -354,12 +354,12 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 		blockId,
 		crypto.Signature{},
 	}
-	buf, err := encoding.MarshalBinary(vote)
+	b, err := encoding.MarshalBinary(vote)
 	if err != nil {
 		log.Println(err)
 		return
 	}
-	hash := sha256.Sum256(buf)
+	hash := sha256.Sum256(b)
 	vote.Hash = hash
 	sig, err := cm.signer(hash[:])
 	if err != nil {

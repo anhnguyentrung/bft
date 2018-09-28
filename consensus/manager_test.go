@@ -54,8 +54,8 @@ func consensusManagers() []*ConsensusManager {
 }
 
 // return manager of the proposer and it's index
-func (tester *tester) managerOfProposer() (*ConsensusManager, int) {
-	managers := tester.managers
+func (t *tester) managerOfProposer() (*ConsensusManager, int) {
+	managers := t.managers
 	for i, manager := range managers {
 		if manager.isProposer() {
 			return manager, i
@@ -64,19 +64,19 @@ func (tester *tester) managerOfProposer() (*ConsensusManager, int) {
 	return nil, -1
 }
 
-func (tester *tester) getProposer() (types.Validator, error) {
-	manager, _ := tester.managerOfProposer()
+func (t *tester) getProposer() (types.Validator, error) {
+	manager, _ := t.managerOfProposer()
 	if manager == nil {
 		return types.Validator{}, fmt.Errorf("there's not a proposer")
 	}
 	return manager.validatorSet.Self(), nil
 }
 
-func (tester *tester) newProposal(round, height uint64) (*types.Proposal, error) {
-	manager, _ := tester.managerOfProposer()
+func (t *tester) newProposal(round, height uint64) (*types.Proposal, error) {
+	manager, _ := t.managerOfProposer()
 	head := manager.head()
 	blockHeightId := types.BlockHeightId{ Height: head.Height() + 1 }
-	proposer, err := tester.getProposer()
+	proposer, err := t.getProposer()
 	if err != nil {
 		return nil, err
 	}
@@ -193,21 +193,21 @@ func TestSendLockedProposal(t *testing.T) {
 	}
 }
 
-func (tester *tester) enterPrepared() error {
-	proposal, err := tester.newProposal(1, 2)
+func (t *tester) enterPrepared() error {
+	proposal, err := t.newProposal(1, 2)
 	if err != nil {
 		return err
 	}
-	managers := tester.managers
-	tester.setBroadcaster(tester.broadcastPrepare)
+	managers := t.managers
+	t.setBroadcaster(t.broadcastPrepare)
 	for _, cm := range managers {
 		cm.enterPrePrepared(proposal)
 	}
 	return nil
 }
 
-func (tester *tester) setBroadcaster(broadcastFunc BroadcastFunc) {
-	managers := tester.managers
+func (t *tester) setBroadcaster(broadcastFunc BroadcastFunc) {
+	managers := t.managers
 	for _, cm := range managers {
 		cm.SetBroadcaster(broadcastFunc)
 	}
@@ -215,7 +215,7 @@ func (tester *tester) setBroadcaster(broadcastFunc BroadcastFunc) {
 
 func broadcastNothing(message types.Message) {}
 
-func (tester *tester) broadcastPrepare(message types.Message) {
+func (t *tester) broadcastPrepare(message types.Message) {
 	if message.Type == types.VoteMessage {
 		vote := message.ToVote(encoding.UnmarshalBinary)
 		if vote == nil {
@@ -225,13 +225,13 @@ func (tester *tester) broadcastPrepare(message types.Message) {
 		if vote.Type != types.Prepare {
 			return
 		}
-		for _, manager := range tester.managers {
+		for _, manager := range t.managers {
 			manager.Receive(message)
 		}
 	}
 }
 
-func (tester *tester) broadcastRoundChange(message types.Message) {
+func (t *tester) broadcastRoundChange(message types.Message) {
 	if message.Type == types.VoteMessage {
 		vote := message.ToVote(encoding.UnmarshalBinary)
 		if vote == nil {
@@ -241,7 +241,7 @@ func (tester *tester) broadcastRoundChange(message types.Message) {
 		if vote.Type != types.RoundChange {
 			return
 		}
-		for _, manager := range tester.managers {
+		for _, manager := range t.managers {
 			manager.Receive(message)
 		}
 	}

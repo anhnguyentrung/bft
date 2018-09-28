@@ -16,14 +16,14 @@ func (v Validator) Equals(target Validator) bool {
 type Validators []Validator
 
 // sort interface
-func (validators Validators) Len() int {
-	return len(validators)
+func (vs Validators) Len() int {
+	return len(vs)
 }
 
-func (validators Validators) Swap(i, j int) {
-	validators[i], validators[j] = validators[j], validators[i]
+func (vs Validators) Swap(i, j int) {
+	vs[i], vs[j] = vs[j], vs[i]
 }
 
-func (validators Validators) Less(i, j int) bool {
-	return validators[i].Address < validators[j].Address
+func (vs Validators) Less(i, j int) bool {
+	return vs[i].Address < vs[j].Address
 }

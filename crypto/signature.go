@@ -23,8 +23,8 @@ func NewSignature(sigString string) (*Signature, error) {
 	return &Signature{Data: data}, nil
 }
 
-func (signature *Signature) Recover(hash []byte) (*PublicKey, error) {
-	recoveredKey, _, err := btcec.RecoverCompact(btcec.S256(), signature.Data, hash)
+func (s *Signature) Recover(hash []byte) (*PublicKey, error) {
+	recoveredKey, _, err := btcec.RecoverCompact(btcec.S256(), s.Data, hash)
 	if err != nil {
 		return nil, err
 	}
@@ -32,14 +32,14 @@ func (signature *Signature) Recover(hash []byte) (*PublicKey, error) {
 	return &PublicKey{Data: recoveredKey.SerializeCompressed()}, nil
 }
 
-func (signature *Signature) String() string {
-	checksum := calculateCheckSum(signature.Data)
-	encodeData := append(signature.Data, checksum...)
+func (s *Signature) String() string {
+	checksum := calculateCheckSum(s.Data)
+	encodeData := append(s.Data, checksum...)
 	return base58.Encode(encodeData)
 }
 
-func (signature *Signature) Verify(address string, hash []byte) bool {
-	recoveredPubKey, err := signature.Recover(hash)
+func (s *Signature) Verify(address string, hash []byte) bool {
+	recoveredPubKey, err := s.Recover(hash)
 	if err != nil {
 		return false
 	}
@@ -49,7 +49,7 @@ func (signature *Signature) Verify(address string, hash []byte) bool {
 	return false
 }
 
-func (signature Signature) IsValid() bool {
+func (s Signature) IsValid() bool {
 	emptySig := make([]byte, 65, 65)
-	return !bytes.Equal(signature.Data, emptySig)
+	return !bytes.Equal(s.Data, emptySig)
 }

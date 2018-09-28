@@ -36,23 +36,23 @@ func NewPrivateKey(wifString string) (*PrivateKey, error) {
 	return &PrivateKey{wif.PrivKey}, nil
 }
 
-func (privateKey *PrivateKey) PublicKey() *PublicKey {
-	pubData := privateKey.PubKey().SerializeCompressed()
+func (pk *PrivateKey) PublicKey() *PublicKey {
+	pubData := pk.PubKey().SerializeCompressed()
 	return &PublicKey{Data: pubData}
 }
 
-func (privateKey *PrivateKey) Sign(hash []byte) (Signature, error) {
+func (pk *PrivateKey) Sign(hash []byte) (Signature, error) {
 	if len(hash) != 32 {
 		return Signature{}, fmt.Errorf("wrong length")
 	}
-	sigData, err :=  btcec.SignCompact(btcec.S256(), privateKey.PrivateKey, hash, true)
+	sigData, err :=  btcec.SignCompact(btcec.S256(), pk.PrivateKey, hash, true)
 	if err != nil {
 		return Signature{}, err
 	}
 	return Signature{Data: sigData}, nil
 }
 
-func (privateKey *PrivateKey) String() string {
-	wif, _ := btcutil.NewWIF(privateKey.PrivateKey, &chaincfg.Params{PrivateKeyID:'\x80'}, false)
+func (pk *PrivateKey) String() string {
+	wif, _ := btcutil.NewWIF(pk.PrivateKey, &chaincfg.Params{PrivateKeyID:'\x80'}, false)
 	return wif.String()
 }

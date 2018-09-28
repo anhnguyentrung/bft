@@ -22,34 +22,34 @@ func NewVoteSet(view View, voteType VoteType, validatorSet *ValidatorSet) *VoteS
 	}
 }
 
-func (voteSet *VoteSet) AddVote(vote Vote, verify bool) error {
-	voteSet.mutex.Lock()
-	defer voteSet.mutex.Unlock()
+func (vs *VoteSet) AddVote(vote Vote, verify bool) error {
+	vs.mutex.Lock()
+	defer vs.mutex.Unlock()
 	if verify {
-		err := voteSet.verifyVote(vote)
+		err := vs.verifyVote(vote)
 		if err != nil {
 			return err
 		}
 	}
 	// check duplicate vote
-	if _, ok := voteSet.votes[vote.Address]; ok {
+	if _, ok := vs.votes[vote.Address]; ok {
 		return fmt.Errorf("voter %s sent duplicate vote", vote.Address)
 	}
-	voteSet.votes[vote.Address] = vote
+	vs.votes[vote.Address] = vote
 	return nil
 }
 
-func (voteSet *VoteSet) verifyVote(vote Vote) error {
+func (vs *VoteSet) verifyVote(vote Vote) error {
 	// check vote type
-	if voteSet.voteType != vote.Type {
-		return fmt.Errorf("VoteSet's type: %s, vote's type: %s", voteSet.voteType.String(), vote.Type.String())
+	if vs.voteType != vote.Type {
+		return fmt.Errorf("VoteSet's type: %s, vote's type: %s", vs.voteType.String(), vote.Type.String())
 	}
 	// check view
-	if voteSet.view.Compare(vote.View) != 0 {
-		return fmt.Errorf("VoteSet's view: %d %d, vote's view: %d %d", voteSet.view.Round, voteSet.view.Height, vote.View.Round, voteSet.view.Height)
+	if vs.view.Compare(vote.View) != 0 {
+		return fmt.Errorf("VoteSet's view: %d %d, vote's view: %d %d", vs.view.Round, vs.view.Height, vote.View.Round, vs.view.Height)
 	}
 	// check whether voter is a valid validator
-	index, voter := voteSet.validatorSet.GetByAddress(vote.Address)
+	index, voter := vs.validatorSet.GetByAddress(vote.Address)
 	if index == -1 {
 		return fmt.Errorf("invalid voter address: %s", vote.Address)
 	}
@@ -60,18 +60,18 @@ func (voteSet *VoteSet) verifyVote(vote Vote) error {
 	return nil
 }
 
-func (voteSet *VoteSet) ChangeView(view View) {
-	voteSet.view = view
+func (vs *VoteSet) ChangeView(view View) {
+	vs.view = view
 }
 
-func (voteSet *VoteSet) Votes() map[string]Vote {
-	voteSet.mutex.RLock()
-	defer voteSet.mutex.RUnlock()
-	return voteSet.votes
+func (vs *VoteSet) Votes() map[string]Vote {
+	vs.mutex.RLock()
+	defer vs.mutex.RUnlock()
+	return vs.votes
 }
 
-func (voteSet *VoteSet) Size() int {
-	voteSet.mutex.RLock()
-	defer voteSet.mutex.RUnlock()
-	return len(voteSet.votes)
+func (vs *VoteSet) Size() int {
+	vs.mutex.RLock()
+	defer vs.mutex.RUnlock()
+	return len(vs.votes)
 }

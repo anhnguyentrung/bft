@@ -20,8 +20,8 @@ func NewValidatorSet(validators Validators, address string) *ValidatorSet {
 	if vs.Size() > 0 {
 		vs.proposer = vs.GetByIndex(0)
 	}
-	index, self := vs.GetByAddress(address)
-	if index == -1 {
+	i, self := vs.GetByAddress(address)
+	if i == -1 {
 		log.Fatal("self address is invalid")
 	}
 	vs.self = self
@@ -34,19 +34,19 @@ func (vs *ValidatorSet) Size() int {
 	return len(vs.validators)
 }
 
-func (vs *ValidatorSet) GetByIndex(index uint64) *Validator {
+func (vs *ValidatorSet) GetByIndex(i uint64) *Validator {
 	vs.rwMutex.RLock()
 	defer vs.rwMutex.RUnlock()
-	if index >= uint64(vs.Size()) {
+	if i >= uint64(vs.Size()) {
 		log.Fatal("index is out of bounds")
 	}
-	return &vs.validators[index]
+	return &vs.validators[i]
 }
 
 func (vs *ValidatorSet) GetByAddress(address string) (int, Validator) {
-	for index, v := range vs.GetValidators() {
+	for i, v := range vs.GetValidators() {
 		if v.Address == address {
-			return index, v
+			return i, v
 		}
 	}
 	return -1, Validator{}
@@ -76,12 +76,12 @@ func (vs *ValidatorSet) Self() Validator {
 func (vs *ValidatorSet) CalculateProposer(round uint64) {
 	offset := round
 	if vs.proposer != nil {
-		pIndex, _ := vs.GetByAddress(vs.proposer.Address)
-		if pIndex == -1 {
+		i, _ := vs.GetByAddress(vs.proposer.Address)
+		if i == -1 {
 			log.Fatal("current proposer is invalid")
 		}
-		offset = uint64(pIndex) + round + 1
+		offset = uint64(i) + round + 1
 	}
-	newPIndex := offset % uint64(vs.Size())
-	vs.proposer = vs.GetByIndex(newPIndex)
+	i := offset % uint64(vs.Size())
+	vs.proposer = vs.GetByIndex(i)
 }

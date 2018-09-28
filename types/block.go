@@ -14,20 +14,20 @@ type BlockHeightId struct {
 	Id Hash
 }
 
-func (blockHeightId BlockHeightId) IsValid() bool {
-	if blockHeightId.Height == 0 {
+func (hi BlockHeightId) IsValid() bool {
+	if hi.Height == 0 {
 		return false
 	}
 	emptyHash := Hash{}
-	return !blockHeightId.Id.Equals(emptyHash)
+	return !hi.Id.Equals(emptyHash)
 }
 
-func (blockHeightId BlockHeightId) Equals(target BlockHeightId) bool {
-	return blockHeightId.Height == target.Height && bytes.Equal(blockHeightId.Id[:], target.Id[:])
+func (hi BlockHeightId) Equals(target BlockHeightId) bool {
+	return hi.Height == target.Height && bytes.Equal(hi.Id[:], target.Id[:])
 }
 
-func (blockHeightId BlockHeightId) String() string {
-	return fmt.Sprintf("%v-%v", blockHeightId.Height, blockHeightId.Id.String())
+func (hi BlockHeightId) String() string {
+	return fmt.Sprintf("%v-%v", hi.Height, hi.Id.String())
 }
 
 type BlockHeader struct {
@@ -38,17 +38,17 @@ type BlockHeader struct {
 	Commits []Vote
 }
 
-func (blockHeader BlockHeader) Height() uint64 {
-	return blockHeader.HeightId.Height
+func (h BlockHeader) Height() uint64 {
+	return h.HeightId.Height
 }
 
-func (blockHeader BlockHeader) Id() Hash {
-	return blockHeader.HeightId.Id
+func (h BlockHeader) Id() Hash {
+	return h.HeightId.Id
 }
 
-func (blockHeader BlockHeader) CalculateId(encoder SerializeFunc) Hash {
-	buf, _ := encoder(blockHeader)
-	return sha256.Sum256(buf)
+func (h BlockHeader) CalculateId(encoder SerializeFunc) Hash {
+	b, _ := encoder(h)
+	return sha256.Sum256(b)
 }
 
 type SignedBlockHeader struct {
@@ -75,32 +75,32 @@ func NewGenesisBlock(genesis Genesis, encoder SerializeFunc) *Block {
 	}
 }
 
-func (block *Block) Header() *BlockHeader{
-	return &block.SignedHeader.Header
+func (b *Block) Header() *BlockHeader{
+	return &b.SignedHeader.Header
 }
 
-func (block *Block) Height() uint64 {
-	return block.Header().Height()
+func (b *Block) Height() uint64 {
+	return b.Header().Height()
 }
 
-func (block *Block) Id() Hash {
-	return block.Header().Id()
+func (b *Block) Id() Hash {
+	return b.Header().Id()
 }
 
-func (block *Block) Signature() crypto.Signature {
-	return block.SignedHeader.Signature
+func (b *Block) Signature() crypto.Signature {
+	return b.SignedHeader.Signature
 }
 
-func (block *Block) IsValid() bool {
-	if block == nil {
+func (b *Block) IsValid() bool {
+	if b == nil {
 		log.Println("block should be not nil")
 		return false
 	}
-	if !block.Header().HeightId.IsValid() {
+	if !b.Header().HeightId.IsValid() {
 		log.Println("block's height or id is invalid")
 		return false
 	}
-	if !block.Signature().IsValid() {
+	if !b.Signature().IsValid() {
 		log.Println("block's signature is invalid")
 		return false
 	}

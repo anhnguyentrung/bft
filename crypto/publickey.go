@@ -28,16 +28,16 @@ func calculateCheckSum(input []byte) []byte {
 	return sum[:4]
 }
 
-func (publicKey *PublicKey) String() string {
-	checkSum := calculateCheckSum(publicKey.Data)
-	encodeData := append(publicKey.Data, checkSum...)
+func (pk *PublicKey) String() string {
+	checkSum := calculateCheckSum(pk.Data)
+	encodeData := append(pk.Data, checkSum...)
 	return base58.Encode(encodeData)
 }
 
-func (publicKey *PublicKey) Address() string {
-	return publicKey.String()
+func (pk *PublicKey) Address() string {
+	return pk.String()
 }
 
-func (publicKey PublicKey) Equals(target PublicKey) bool {
-	return bytes.Equal(publicKey.Data, target.Data)
+func (pk PublicKey) Equals(target PublicKey) bool {
+	return bytes.Equal(pk.Data, target.Data)
 }

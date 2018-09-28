@@ -41,37 +41,37 @@ func NewSynchronizer() *Synchronizer {
 	}
 }
 
-func (synchronizer *Synchronizer) setState(state SyncState) {
-	if synchronizer.state == state {
+func (s *Synchronizer) setState(state SyncState) {
+	if s.state == state {
 		return
 	}
-	synchronizer.state = state
+	s.state = state
 }
 
-func (synchronizer *Synchronizer) requestBlocks(c *Connection) {
+func (s *Synchronizer) requestBlocks(c *Connection) {
 	blockStore := database.GetBlockStore()
 	lastHeight := blockStore.LastHeight()
-	if lastHeight < synchronizer.lastRequestedHeight && c.IsAvailable() {
+	if lastHeight < s.lastRequestedHeight && c.IsAvailable() {
 		return
 	}
 	if !c.IsAvailable() {
 		log.Println("This connection is not available to sync")
-		synchronizer.knownHeight = blockStore.LastHeight()
-		synchronizer.lastRequestedHeight = 0
-		synchronizer.setState(InSync)
+		s.knownHeight = blockStore.LastHeight()
+		s.lastRequestedHeight = 0
+		s.setState(InSync)
 		return
 	}
-	if synchronizer.lastRequestedHeight != synchronizer.knownHeight {
-		start := synchronizer.expectedHeight
-		end := synchronizer.knownHeight
+	if s.lastRequestedHeight != s.knownHeight {
+		start := s.expectedHeight
+		end := s.knownHeight
 		if end > 0 && end >= start {
-			synchronizer.sendSyncRequest(c, start, end)
-			synchronizer.lastRequestedHeight = end
+			s.sendSyncRequest(c, start, end)
+			s.lastRequestedHeight = end
 		}
 	}
 }
 
-func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint64) {
+func (s *Synchronizer) sendSyncRequest(c *Connection, start, end uint64) {
 	syncRequest := types.SyncRequest{
 		StartHeight: start,
 		EndHeight: end,
@@ -85,41 +85,41 @@ func (synchronizer *Synchronizer) sendSyncRequest(c *Connection, start, end uint
 	c.Send(message)
 }
 
-func (synchronizer *Synchronizer) updateKnownHeight(connection *Connection) {
+func (s *Synchronizer) updateKnownHeight(connection *Connection) {
 	if connection.IsAvailable() {
-		if connection.lastReceivedHandshake.Height() > synchronizer.knownHeight {
-			synchronizer.knownHeight = connection.lastReceivedHandshake.Height()
+		if connection.lastReceivedHandshake.Height() > s.knownHeight {
+			s.knownHeight = connection.lastReceivedHandshake.Height()
 		}
 	}
 }
 
-func (synchronizer *Synchronizer) shouldSync() bool {
+func (s *Synchronizer) shouldSync() bool {
 	blockStore := database.GetBlockStore()
-	return synchronizer.lastRequestedHeight < synchronizer.knownHeight || blockStore.LastHeight() < synchronizer.lastRequestedHeight
+	return s.lastRequestedHeight < s.knownHeight || blockStore.LastHeight() < s.lastRequestedHeight
 }
 
-func (synchronizer *Synchronizer) startSync(connection *Connection, localLastHeight uint64, remoteLastHeight uint64) {
-	if remoteLastHeight > synchronizer.knownHeight {
-		synchronizer.knownHeight = remoteLastHeight
+func (s *Synchronizer) startSync(connection *Connection, localLastHeight uint64, remoteLastHeight uint64) {
+	if remoteLastHeight > s.knownHeight {
+		s.knownHeight = remoteLastHeight
 	}
-	if !synchronizer.shouldSync() {
+	if !s.shouldSync() {
 		return
 	}
-	if synchronizer.state == InSync {
-		synchronizer.setState(Catchup)
-		synchronizer.expectedHeight = localLastHeight + 1
+	if s.state == InSync {
+		s.setState(Catchup)
+		s.expectedHeight = localLastHeight + 1
 	}
-	synchronizer.requestBlocks(connection)
+	s.requestBlocks(connection)
 }
 
-func (synchronizer *Synchronizer) handleHandshake(handshake *types.Handshake, connection *Connection) {
+func (s *Synchronizer) handleHandshake(handshake *types.Handshake, connection *Connection) {
 	blockStore := database.GetBlockStore()
 	localLastHeight := blockStore.LastHeight()
 	remoteLastHeight := handshake.LastHeightId.Height
-	synchronizer.updateKnownHeight(connection)
+	s.updateKnownHeight(connection)
 	connection.Sync(false)
 	if localLastHeight < remoteLastHeight {
-		synchronizer.startSync(connection, localLastHeight, remoteLastHeight)
+		s.startSync(connection, localLastHeight, remoteLastHeight)
 		return
 	}
 }

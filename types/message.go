@@ -27,9 +27,9 @@ func NewMessage(messageType MessageType, payload []byte) Message {
 	}
 }
 
-func (message Message) ToHandshake(decoder DeserializeFunc) *Handshake {
+func (m Message) ToHandshake(decoder DeserializeFunc) *Handshake {
 	handshake := Handshake{}
-	err := decoder(message.Payload, &handshake)
+	err := decoder(m.Payload, &handshake)
 	if err != nil {
 		log.Println(err)
 		return nil
@@ -37,27 +37,27 @@ func (message Message) ToHandshake(decoder DeserializeFunc) *Handshake {
 	return &handshake
 }
 
-func (message Message) ToProposal(decoder DeserializeFunc) *Proposal {
+func (m Message) ToProposal(decoder DeserializeFunc) *Proposal {
 	proposal := Proposal{}
-	err := decoder(message.Payload, &proposal)
+	err := decoder(m.Payload, &proposal)
 	if err != nil {
 		return nil
 	}
 	return &proposal
 }
 
-func (message Message) ToVote(decoder DeserializeFunc) *Vote {
+func (m Message) ToVote(decoder DeserializeFunc) *Vote {
 	vote := Vote{}
-	err := decoder(message.Payload, &vote)
+	err := decoder(m.Payload, &vote)
 	if err != nil {
 		return nil
 	}
 	return &vote
 }
 
-func (message Message) ToSyncRequest(decoder DeserializeFunc) *SyncRequest {
+func (m Message) ToSyncRequest(decoder DeserializeFunc) *SyncRequest {
 	syncRequest := SyncRequest{}
-	err := decoder(message.Payload, &syncRequest)
+	err := decoder(m.Payload, &syncRequest)
 	if err != nil {
 		return nil
 	}
@@ -102,32 +102,32 @@ func NewHandshake(chainId Hash, address string, lastHeightId BlockHeightId, sign
 	return &handshake
 }
 
-func (handshake *Handshake) Height() uint64 {
-	return handshake.LastHeightId.Height
+func (hs *Handshake) Height() uint64 {
+	return hs.LastHeightId.Height
 }
 
-func (handshake *Handshake) IsValid() bool {
-	if handshake.ChainId.IsEmpty() {
+func (hs *Handshake) IsValid() bool {
+	if hs.ChainId.IsEmpty() {
 		log.Println("chain id is empty")
 		return false
 	}
-	if !handshake.LastHeightId.IsValid() {
+	if !hs.LastHeightId.IsValid() {
 		log.Println("height, id are invalid")
 		return false
 	}
-	if !handshake.Signature.IsValid() {
+	if !hs.Signature.IsValid() {
 		log.Println("signature is invalid")
 		return false
 	}
 	return true
 }
 
-func (handshake *Handshake) Verify() bool {
-	ts := handshake.Timestamp.UnixNano()
+func (hs *Handshake) Verify() bool {
+	ts := hs.Timestamp.UnixNano()
 	now := time.Now().UTC().UnixNano()
 	if now - ts > HandshakeTimeout * int64(time.Second) {
 		log.Println("handshake timeout")
 		return false
 	}
-	return handshake.Signature.Verify(handshake.Address, handshake.Digest[:])
+	return hs.Signature.Verify(hs.Address, hs.Digest[:])
 }

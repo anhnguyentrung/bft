@@ -30,7 +30,7 @@ func NewGenesis() Genesis {
 	}
 }
 
-func (genesis Genesis) ChainId(encoder SerializeFunc) Hash {
-	buf, _ := encoder(genesis)
+func (g Genesis) ChainId(encoder SerializeFunc) Hash {
+	buf, _ := encoder(g)
 	return sha256.Sum256(buf)
 }

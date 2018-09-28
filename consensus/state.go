@@ -123,14 +123,14 @@ func (cs *ConsensusState) isLocked() bool {
 	return true
 }
 
-func (cs *ConsensusState) updateView(view types.View) {
-	if cs.view.Compare(view) != 0 {
-		cs.view = view
+func (cs *ConsensusState) updateView(v types.View) {
+	if cs.view.Compare(v) != 0 {
+		cs.view = v
 		for _, votSet := range cs.roundChanges {
-			votSet.ChangeView(view)
+			votSet.ChangeView(v)
 		}
 		for _, votSet := range cs.prepareCommits {
-			votSet.ChangeView(view)
+			votSet.ChangeView(v)
 		}
 		if !cs.isLocked() {
 			cs.proposal = nil
@@ -146,15 +146,15 @@ func (cs *ConsensusState) clearSmallerRound() {
 	}
 }
 
-func (cs *ConsensusState) getMaxRound(threshold int) uint64 {
-	maxRound := uint64(math.MaxUint64)
+func (cs *ConsensusState) getMaxRound(threshold int) (maxRound uint64) {
+	maxRound = uint64(math.MaxUint64)
 	for round, voteSet := range cs.roundChanges {
 		voteNum := voteSet.Size()
 		if voteNum >= threshold && maxRound < uint64(voteNum) {
 			maxRound = round
 		}
 	}
-	return maxRound
+	return
 }
 
 func (cs *ConsensusState) prepares() *types.VoteSet {
