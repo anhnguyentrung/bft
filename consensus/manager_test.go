@@ -48,6 +48,7 @@ func consensusManagers() []*ConsensusManager {
 		cm.currentState = NewConsensusState(view, cm.validatorSet)
 		cm.currentState.setSate(NewRound)
 		cm.validatorSet.CalculateProposer(view.Round)
+		log.Println(cm.validatorSet.Proposer().Address)
 		cms = append(cms, cm)
 	}
 	return cms
@@ -115,7 +116,7 @@ func TestParseAndVerifyProposal(t *testing.T) {
 		t.Fatal(err)
 	}
 	message := types.NewMessage(types.ProposalMessage, payload)
-	parsedProposal := message.ToProposal(encoding.UnmarshalBinary)
+	parsedProposal, _ := message.ToProposal(encoding.UnmarshalBinary)
 	if parsedProposal == nil {
 		t.Fatal("can not parse proposal")
 	}
@@ -166,10 +167,10 @@ func TestEnterPrepared(t *testing.T) {
 	if state != Prepared {
 		t.Fatalf("expected prepared, got %s", state.String())
 	}
-	for _, cm := range tester.managers {
-		prepares := cm.currentState.prepares()
-		t.Log(prepares.Size())
-	}
+	//for _, cm := range tester.managers {
+	//	prepares := cm.currentState.prepares()
+	//	t.Log(prepares.Size())
+	//}
 }
 
 func TestSendLockedProposal(t *testing.T) {
@@ -180,16 +181,22 @@ func TestSendLockedProposal(t *testing.T) {
 	}
 	// first manager should be locked
 	firstManager := tester.managers[0]
+	lastManager := tester.managers[len(tester.managers) - 1]
 	if !firstManager.currentState.isLocked() {
 		t.Fatal("first manager should be locked")
 	}
-	tester.setBroadcaster(tester.broadcastRoundChange)
+	tester.setBroadcaster(tester.broadcast)
 	for _, cm := range tester.managers {
 		cm.sendRoundChange(cm.currentState.round() + 1)
 	}
+	for _, cm := range tester.managers {
+		t.Log(cm.address())
+		t.Log(cm.currentState.stateType.String())
+		t.Log(cm.currentState.view)
+	}
 	state := firstManager.currentState.stateType
-	if state != Prepared {
-		t.Fatalf("expected prepared, got %s", state.String())
+	if state != Prepared && !lastManager.isProposer() {
+		t.Fatalf("%s expected prepared, got %s", firstManager.address(), state.String())
 	}
 }
 
@@ -217,7 +224,7 @@ func broadcastNothing(message types.Message) {}
 
 func (t *tester) broadcastPrepare(message types.Message) {
 	if message.Type == types.VoteMessage {
-		vote := message.ToVote(encoding.UnmarshalBinary)
+		vote, _ := message.ToVote(encoding.UnmarshalBinary)
 		if vote == nil {
 			log.Println("broadcast a nil prepare message")
 			return
@@ -231,9 +238,9 @@ func (t *tester) broadcastPrepare(message types.Message) {
 	}
 }
 
-func (t *tester) broadcastRoundChange(message types.Message) {
+func (t *tester) broadcast(message types.Message) {
 	if message.Type == types.VoteMessage {
-		vote := message.ToVote(encoding.UnmarshalBinary)
+		vote, _ := message.ToVote(encoding.UnmarshalBinary)
 		if vote == nil {
 			log.Println("broadcast a nil round-change message")
 			return
@@ -241,8 +248,14 @@ func (t *tester) broadcastRoundChange(message types.Message) {
 		if vote.Type != types.RoundChange {
 			return
 		}
-		for _, manager := range t.managers {
-			manager.Receive(message)
+	} else if message.Type == types.ProposalMessage{
+		proposal, _ := message.ToProposal(encoding.UnmarshalBinary)
+		if proposal == nil {
+			log.Println("broadcast a nil proposal")
+			return
 		}
+	}
+	for _, manager := range t.managers {
+		manager.Receive(message)
 	}
 }

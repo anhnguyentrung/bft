@@ -14,6 +14,13 @@ type BlockHeightId struct {
 	Id Hash
 }
 
+func EmptyHeightId() BlockHeightId {
+	return BlockHeightId{
+		Height: 0,
+		Id: Hash{},
+	}
+}
+
 func (hi BlockHeightId) IsValid() bool {
 	if hi.Height == 0 {
 		return false

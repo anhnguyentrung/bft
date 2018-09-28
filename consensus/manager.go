@@ -50,10 +50,18 @@ func (cm *ConsensusManager) Receive(message types.Message) {
 	messageType := message.Type
 	switch messageType {
 	case types.VoteMessage:
-		vote := message.ToVote(encoding.UnmarshalBinary)
+		vote, err := message.ToVote(encoding.UnmarshalBinary)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 		cm.onVote(vote)
 	case types.ProposalMessage:
-		proposal := message.ToProposal(encoding.UnmarshalBinary)
+		proposal, err := message.ToProposal(encoding.UnmarshalBinary)
+		if err != nil {
+			log.Println(err)
+			return
+		}
 		cm.onProposal(proposal)
 	}
 }
@@ -103,63 +111,65 @@ func (cm *ConsensusManager) onProposal(proposal *types.Proposal) {
 }
 
 func (cm *ConsensusManager) enterPrePrepared(proposal *types.Proposal) {
-	currentState := cm.currentState
-	if currentState.stateType == NewRound {
-		if currentState.isLocked() {
-			if currentState.proposal.BlockHeightId().Equals(currentState.lockedHeightId) {
-				currentState.setSate(Prepared)
+	cs := cm.currentState
+	if cs.stateType == NewRound {
+		if cs.isLocked() {
+			if cs.proposal.BlockHeightId().Equals(cs.lockedHeightId) {
+				cs.setSate(Prepared)
 				cm.sendVote(types.Commit)
 			} else {
 				// should go to next round
 				cm.sendRoundChange(cm.currentState.round() + 1)
 			}
 		} else {
-			currentState.setProposal(proposal)
-			currentState.setSate(PrePrepared)
+			cs.setProposal(proposal)
+			cs.setSate(PrePrepared)
 			cm.sendVote(types.Prepare)
 		}
 	}
 }
 
 func (cm *ConsensusManager) onPrepare(vote types.Vote) {
+	cs := cm.currentState
 	if err := cm.verifyVote(vote); err != nil {
 		return
 	}
-	cm.currentState.applyVote(vote)
-	proposalHeightId := cm.currentState.proposalHeightId()
+	cs.applyVote(vote)
+	proposalHeightId := cs.proposalHeightId()
 	// if the validator have a locked block, she should broadcast COMMIT on the locked block and enter prepared
 	// or the validator received +2/3 prepare
-	if (cm.currentState.isLocked() && proposalHeightId.Equals(cm.currentState.lockedHeightId)) || cm.canEnterPrepared() {
+	if (cs.isLocked() && proposalHeightId.Equals(cs.lockedHeightId)) || cm.canEnterPrepared() {
 		cm.enterPrepared()
 	}
 }
 
 func (cm *ConsensusManager) enterPrepared() {
-	currentState := cm.currentState
+	cs := cm.currentState
 	// lock proposal block
-	currentState.lock()
-	currentState.setSate(Prepared)
+	cs.lock()
+	cs.setSate(Prepared)
 	cm.sendVote(types.Commit)
 }
 
 // check whether the validator received +2/3 prepare
 func (cm *ConsensusManager) canEnterPrepared() bool {
-	currentState := cm.currentState
-	if currentState.stateType >= Prepared {
-		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
+	cs := cm.currentState
+	if cs.stateType >= Prepared {
+		log.Printf("current state %s is greater than prepared", cs.stateType.String())
 		return false
 	}
-	if currentState.prepares().Size() < 2*cm.f + 1 {
+	if cs.prepares().Size() < 2*cm.f + 1 {
 		return false
 	}
 	return true
 }
 
 func (cm *ConsensusManager) onCommit(vote types.Vote) {
+	cs := cm.currentState
 	if err := cm.verifyVote(vote); err != nil {
 		return
 	}
-	cm.currentState.applyVote(vote)
+	cs.applyVote(vote)
 	if cm.canEnterCommitted() {
 		cm.enterCommitted()
 	}
@@ -167,32 +177,32 @@ func (cm *ConsensusManager) onCommit(vote types.Vote) {
 
 // check whether the validator received +2/3 commit
 func (cm *ConsensusManager) canEnterCommitted() bool {
-	currentState := cm.currentState
-	if currentState.stateType >= Committed {
-		log.Printf("current state %s is greater than prepared", currentState.stateType.String())
+	cs := cm.currentState
+	if cs.stateType >= Committed {
+		log.Printf("current state %s is greater than prepared", cs.stateType.String())
 		return false
 	}
-	if currentState.commits().Size() < 2*cm.f + 1 {
+	if cs.commits().Size() < 2*cm.f + 1 {
 		return false
 	}
 	return true
 }
 
 func (cm *ConsensusManager) enterCommitted() {
-	currentState := cm.currentState
+	cs := cm.currentState
 	// lock proposal block
-	currentState.lock()
-	currentState.setSate(Committed)
-	proposal := currentState.proposal
+	cs.lock()
+	cs.setSate(Committed)
+	proposal := cs.proposal
 	if proposal != nil {
 		//TODO: Commit proposal block
 		commits := make([]types.Vote, 0)
-		for _, vote := range currentState.commits().Votes() {
+		for _, vote := range cs.commits().Votes() {
 			commits = append(commits, vote)
 		}
 		if err := cm.commitBlock(&proposal.Block, commits); err != nil {
-			currentState.unLock()
-			cm.sendRoundChange(currentState.round() + 1)
+			cs.unLock()
+			cm.sendRoundChange(cs.round() + 1)
 			return
 		}
 		cm.startNewRound(0)
@@ -226,10 +236,10 @@ func (cm *ConsensusManager) onRoundChange(vote types.Vote) {
 }
 
 func (cm *ConsensusManager) shouldChangeRound(round uint64) bool {
-	currentState := cm.currentState
-	voteCount := currentState.roundChanges[round].Size()
-	if currentState.stateType == RoundChange && voteCount == cm.f + 1 {
-		if currentState.round() < round {
+	cs := cm.currentState
+	voteCount := cs.roundChanges[round].Size()
+	if cs.stateType == RoundChange && voteCount == cm.f + 1 {
+		if cs.round() < round {
 			return true
 		}
 	}
@@ -237,10 +247,10 @@ func (cm *ConsensusManager) shouldChangeRound(round uint64) bool {
 }
 
 func (cm *ConsensusManager) shouldStartNewRound(round uint64) bool {
-	currentState := cm.currentState
-	stateType := currentState.stateType
-	currentRound := currentState.round()
-	voteCount := currentState.roundChanges[round].Size()
+	cs := cm.currentState
+	stateType := cs.stateType
+	currentRound := cs.round()
+	voteCount := cs.roundChanges[round].Size()
 	if voteCount == 2*cm.f + 1 && (stateType == RoundChange || currentRound < round) {
 		return true
 	}
@@ -248,15 +258,18 @@ func (cm *ConsensusManager) shouldStartNewRound(round uint64) bool {
 }
 
 func (cm *ConsensusManager) isProposer() bool {
-	if cm.validatorSet == nil || cm.validatorSet.Size() == 0 {
+	vs := cm.validatorSet
+	if vs == nil || vs.Size() == 0 {
 		log.Println("validator set should not be nil or empty")
 		return false
 	}
-	self := cm.validatorSet.Self()
-	return cm.validatorSet.IsProposer(self)
+	self := vs.Self()
+	return vs.IsProposer(self)
 }
 
 func (cm *ConsensusManager) startNewRound(round uint64) {
+	cs := cm.currentState
+	vs := cm.validatorSet
 	head := cm.head()
 	if head == nil {
 		log.Fatal("blockchain must have a head")
@@ -265,17 +278,18 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 		0,
 		head.Height() + 1,
 	}
-	if cm.currentState == nil {
+	if cs == nil {
 		log.Println("initial round")
-		cm.currentState = NewConsensusState(newView, cm.validatorSet)
-	} else if head.Height() >= cm.currentState.height() {
+		cs = NewConsensusState(newView, cm.validatorSet)
+	} else if head.Height() >= cs.height() {
 		log.Println("catch up latest proposal")
-		cm.currentState = NewConsensusState(newView, cm.validatorSet)
-	} else if head.Height() == cm.currentState.height() - 1 {
+		log.Println(head.Height())
+		cs = NewConsensusState(newView, cm.validatorSet)
+	} else if head.Height() == cs.height() - 1 {
 		if round == 0 {
 			return
 		}
-		if round < cm.currentState.round() {
+		if round < cs.round() {
 			log.Println("new round should be greater than current round")
 			return
 		}
@@ -284,29 +298,30 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 		log.Println("new height should be greater than current height")
 	}
 	// delete all old votes
-	for k, _ := range cm.currentState.roundChanges {
-		delete(cm.currentState.roundChanges, k)
+	for k, _ := range cs.roundChanges {
+		delete(cs.roundChanges, k)
 	}
-	cm.currentState.updateView(newView)
-	cm.validatorSet.CalculateProposer(round)
-	cm.currentState.setSate(NewRound)
+	cs.updateView(newView)
+	vs.CalculateProposer(round)
+	cs.setSate(NewRound)
 	if newView.Round != 0 && cm.isProposer() {
-		if cm.currentState.isLocked() {
-			if cm.currentState.proposal != nil {
-				cm.sendProposal(*cm.currentState.proposal)
+		if cs.isLocked() {
+			if cs.proposal != nil {
+				cm.sendProposal(*cs.proposal)
 			}
 		} else {
-			if cm.currentState.pendingProposal != nil {
-				cm.sendProposal(*cm.currentState.pendingProposal)
-			}
+			//if cs.pendingProposal != nil {
+			//	cm.sendProposal(*cs.pendingProposal)
+			//}
 		}
 	}
 	cm.newRoundChangeTimer()
 }
 
-func (cm *ConsensusManager) changeView(view types.View) {
-	cm.currentState.setSate(RoundChange)
-	cm.currentState.updateView(view)
+func (cm *ConsensusManager) changeView(v types.View) {
+	cs := cm.currentState
+	cs.setSate(RoundChange)
+	cs.updateView(v)
 	cm.newRoundChangeTimer()
 }
 
@@ -323,28 +338,31 @@ func (cm *ConsensusManager) newRoundChangeTimer() {
 }
 
 func (cm *ConsensusManager) handleTimeout() {
-	if cm.currentState.stateType != RoundChange {
+	cs := cm.currentState
+	if cs.stateType != RoundChange {
 		threshold := cm.f + 1
-		maxRound := cm.currentState.getMaxRound(threshold)
-		if maxRound != math.MaxUint64 && maxRound > cm.currentState.round() {
+		maxRound := cs.getMaxRound(threshold)
+		if maxRound != math.MaxUint64 && maxRound > cs.round() {
 			cm.sendRoundChange(maxRound)
 			return
 		}
 	}
 	head := cm.head()
-	if head != nil && head.Height() >= cm.currentState.height() {
+	if head != nil && head.Height() >= cs.height() {
 		cm.startNewRound(0)
 	} else {
-		cm.sendRoundChange(cm.currentState.round() + 1)
+		cm.sendRoundChange(cs.round() + 1)
 	}
 }
 
 func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
-	voter := cm.validatorSet.Self()
-	view := cm.currentState.view
+	cs := cm.currentState
+	vs := cm.validatorSet
+	voter := vs.Self()
+	view := cs.view
 	blockId := types.Hash{}
 	if voteType != types.RoundChange {
-		blockId = cm.currentState.proposal.BlockId()
+		blockId = cs.proposal.BlockId()
 	}
 	vote := types.Vote {
 		types.Hash{},
@@ -380,8 +398,10 @@ func (cm *ConsensusManager) sendVote(voteType types.VoteType) {
 }
 
 func (cm *ConsensusManager) sendProposal(proposal types.Proposal) {
-	proposal.View = cm.currentState.view
-	proposal.Sender = cm.validatorSet.Self()
+	cs := cm.currentState
+	vs := cm.validatorSet
+	proposal.View = cs.view
+	proposal.Sender = vs.Self()
 	// self-processing
 	cm.onProposal(&proposal)
 	// send to others

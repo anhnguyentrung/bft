@@ -8,6 +8,7 @@ import (
 	"bft/types"
 	"bft/crypto"
 	"time"
+	"log"
 )
 
 const SHA256TypeSize = 32
@@ -22,6 +23,7 @@ func UnmarshalBinary(buf []byte, v interface{}) error {
 		case *types.MessageType, *types.VoteType:
 			bytes, err := d.ReadBytes(1)
 			if err != nil {
+				log.Println("type")
 				return err
 			}
 			rv.SetUint(uint64(bytes[0]))

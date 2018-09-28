@@ -61,10 +61,14 @@ func NewConsensusState(view types.View, validatorSet *types.ValidatorSet) *Conse
 }
 
 func (cs *ConsensusState) round() uint64 {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
 	return cs.view.Round
 }
 
 func (cs *ConsensusState) height() uint64 {
+	cs.rwMutex.RLock()
+	defer cs.rwMutex.RUnlock()
 	return cs.view.Height
 }
 
@@ -113,7 +117,7 @@ func (cs *ConsensusState) lock() {
 }
 
 func (cs *ConsensusState) unLock() {
-	cs.lockedHeightId = types.BlockHeightId{}
+	cs.lockedHeightId = types.EmptyHeightId()
 }
 
 func (cs *ConsensusState) isLocked() bool {

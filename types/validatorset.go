@@ -29,9 +29,7 @@ func NewValidatorSet(validators Validators, address string) *ValidatorSet {
 }
 
 func (vs *ValidatorSet) Size() int {
-	vs.rwMutex.RLock()
-	defer vs.rwMutex.RUnlock()
-	return len(vs.validators)
+	return len(vs.GetValidators())
 }
 
 func (vs *ValidatorSet) GetByIndex(i uint64) *Validator {
@@ -64,7 +62,19 @@ func (vs *ValidatorSet) IsProposer(validator Validator) bool {
 		log.Printf("wrong proposer. expected %s, got %s\n", vs.proposer.Address, validator.Address)
 		return false
 	}
-	return v.Equals(*vs.proposer)
+	return v.Equals(*vs.Proposer())
+}
+
+func (vs *ValidatorSet) Proposer() *Validator {
+	vs.rwMutex.RLock()
+	defer vs.rwMutex.RUnlock()
+	return vs.proposer
+}
+
+func (vs *ValidatorSet) setProposer(proposer *Validator) {
+	vs.rwMutex.Lock()
+	defer vs.rwMutex.Unlock()
+	vs.proposer = proposer
 }
 
 func (vs *ValidatorSet) Self() Validator {
@@ -75,13 +85,13 @@ func (vs *ValidatorSet) Self() Validator {
 
 func (vs *ValidatorSet) CalculateProposer(round uint64) {
 	offset := round
-	if vs.proposer != nil {
-		i, _ := vs.GetByAddress(vs.proposer.Address)
+	if vs.Proposer() != nil {
+		i, _ := vs.GetByAddress(vs.Proposer().Address)
 		if i == -1 {
 			log.Fatal("current proposer is invalid")
 		}
 		offset = uint64(i) + round + 1
 	}
 	i := offset % uint64(vs.Size())
-	vs.proposer = vs.GetByIndex(i)
+	vs.setProposer(vs.GetByIndex(i))
 }

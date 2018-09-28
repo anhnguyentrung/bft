@@ -27,37 +27,44 @@ func NewMessage(messageType MessageType, payload []byte) Message {
 	}
 }
 
-func (m Message) ToHandshake(decoder DeserializeFunc) *Handshake {
+func (m Message) ToHandshake(decoder DeserializeFunc) (*Handshake, error) {
 	handshake := Handshake{}
-	err := decoder(m.Payload, &handshake)
+	payload := make([]byte, len(m.Payload))
+	copy(payload, m.Payload)
+	err := decoder(payload, &handshake)
 	if err != nil {
-		log.Println(err)
-		return nil
+		return nil, err
 	}
-	return &handshake
+	return &handshake, nil
 }
 
-func (m Message) ToProposal(decoder DeserializeFunc) *Proposal {
+func (m Message) ToProposal(decoder DeserializeFunc) (*Proposal, error) {
 	proposal := Proposal{}
-	err := decoder(m.Payload, &proposal)
+	payload := make([]byte, len(m.Payload))
+	copy(payload, m.Payload)
+	err := decoder(payload, &proposal)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &proposal
+	return &proposal, nil
 }
 
-func (m Message) ToVote(decoder DeserializeFunc) *Vote {
+func (m Message) ToVote(decoder DeserializeFunc) (*Vote, error) {
 	vote := Vote{}
-	err := decoder(m.Payload, &vote)
+	payload := make([]byte, len(m.Payload))
+	copy(payload, m.Payload)
+	err := decoder(payload, &vote)
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return &vote
+	return &vote, nil
 }
 
 func (m Message) ToSyncRequest(decoder DeserializeFunc) *SyncRequest {
 	syncRequest := SyncRequest{}
-	err := decoder(m.Payload, &syncRequest)
+	payload := make([]byte, len(m.Payload))
+	copy(payload, m.Payload)
+	err := decoder(payload, &syncRequest)
 	if err != nil {
 		return nil
 	}

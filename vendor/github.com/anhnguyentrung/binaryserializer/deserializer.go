@@ -66,6 +66,7 @@ func (d *Deserializer) ReadBytes(l int) ([]byte, error)  {
 
 func (d *Deserializer) byteDeserializer(v reflect.Value) error {
 	if err := d.checkBufferLength(1); err != nil {
+		fmt.Println("byte")
 		return err
 	}
 	value := d.buffer[d.pos]
@@ -126,6 +127,7 @@ func (d *Deserializer) int64Deserializer(v reflect.Value) error {
 
 func (d *Deserializer) uint64Deserializer(v reflect.Value) error {
 	if err := d.checkBufferLength(Uint64Size); err != nil {
+		fmt.Println("uint64")
 		return err
 	}
 	value := binary.BigEndian.Uint64(d.buffer[d.pos:])
@@ -161,6 +163,7 @@ func (d *Deserializer) bytesDeserializer(v reflect.Value) error {
 func (d *Deserializer) stringDeserializer(v reflect.Value) error {
 	l, err := d.readLength()
 	if err != nil {
+		fmt.Println("string")
 		return err
 	}
 	if err := d.checkBufferLength(int(l)); err != nil {
