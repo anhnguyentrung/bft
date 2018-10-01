@@ -189,6 +189,7 @@ func (cm *ConsensusManager) canEnterCommitted() bool {
 }
 
 func (cm *ConsensusManager) enterCommitted() {
+	log.Println("enter committed")
 	cs := cm.currentState
 	// lock proposal block
 	cs.lock()

@@ -1,3 +1,9 @@
+.idea
+db1
+db2
+consensus/db1
+consensus/db2
+vendor
 # Binaries for programs and plugins
 *.exe
 *.exe~

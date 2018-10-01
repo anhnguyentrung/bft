@@ -158,7 +158,7 @@ func TestEnterPrePrepared(t *testing.T) {
 
 func TestEnterPrepared(t *testing.T) {
 	tester := newTester()
-	err := tester.enterPrepared()
+	err := tester.enterPrePrepared()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -173,34 +173,55 @@ func TestEnterPrepared(t *testing.T) {
 	//}
 }
 
-func TestSendLockedProposal(t *testing.T) {
+//func TestSendLockedProposal(t *testing.T) {
+//	tester := newTester()
+//	err := tester.enterPrePrepared()
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//	// first manager should be locked
+//	firstManager := tester.managers[0]
+//	lastManager := tester.managers[len(tester.managers) - 1]
+//	if !firstManager.currentState.isLocked() {
+//		t.Fatal("first manager should be locked")
+//	}
+//	tester.setBroadcaster(tester.broadcastRoundChange)
+//	for _, cm := range tester.managers {
+//		cm.sendRoundChange(cm.currentState.round() + 1)
+//	}
+//	for _, cm := range tester.managers {
+//		t.Log(cm.address())
+//		t.Log(cm.currentState.stateType.String())
+//		t.Log(cm.currentState.view)
+//	}
+//	state := firstManager.currentState.stateType
+//	if state != Prepared && !lastManager.isProposer() {
+//		t.Fatalf("%s expected prepared, got %s", firstManager.address(), state.String())
+//	}
+//}
+
+func TestCommitBlock(t *testing.T) {
 	tester := newTester()
-	err := tester.enterPrepared()
+	proposal, err := tester.newProposal(1, 2)
 	if err != nil {
 		t.Fatal(err)
 	}
-	// first manager should be locked
-	firstManager := tester.managers[0]
-	lastManager := tester.managers[len(tester.managers) - 1]
-	if !firstManager.currentState.isLocked() {
-		t.Fatal("first manager should be locked")
-	}
+	managers := tester.managers
 	tester.setBroadcaster(tester.broadcast)
-	for _, cm := range tester.managers {
-		cm.sendRoundChange(cm.currentState.round() + 1)
+	for _, cm := range managers {
+		cm.enterPrePrepared(proposal)
 	}
+	//for _, cm := range tester.managers {
+	//	cm.sendRoundChange(cm.currentState.round() + 1)
+	//}
 	for _, cm := range tester.managers {
 		t.Log(cm.address())
 		t.Log(cm.currentState.stateType.String())
 		t.Log(cm.currentState.view)
 	}
-	state := firstManager.currentState.stateType
-	if state != Prepared && !lastManager.isProposer() {
-		t.Fatalf("%s expected prepared, got %s", firstManager.address(), state.String())
-	}
 }
 
-func (t *tester) enterPrepared() error {
+func (t *tester) enterPrePrepared() error {
 	proposal, err := t.newProposal(1, 2)
 	if err != nil {
 		return err
@@ -238,7 +259,7 @@ func (t *tester) broadcastPrepare(message types.Message) {
 	}
 }
 
-func (t *tester) broadcast(message types.Message) {
+func (t *tester) broadcastRoundChange(message types.Message) {
 	if message.Type == types.VoteMessage {
 		vote, _ := message.ToVote(encoding.UnmarshalBinary)
 		if vote == nil {
@@ -246,6 +267,25 @@ func (t *tester) broadcast(message types.Message) {
 			return
 		}
 		if vote.Type != types.RoundChange {
+			return
+		}
+	} else if message.Type == types.ProposalMessage{
+		proposal, _ := message.ToProposal(encoding.UnmarshalBinary)
+		if proposal == nil {
+			log.Println("broadcast a nil proposal")
+			return
+		}
+	}
+	for _, manager := range t.managers {
+		manager.Receive(message)
+	}
+}
+
+func (t *tester) broadcast(message types.Message) {
+	if message.Type == types.VoteMessage {
+		vote, _ := message.ToVote(encoding.UnmarshalBinary)
+		if vote == nil {
+			log.Println("broadcast a nil round-change message")
 			return
 		}
 	} else if message.Type == types.ProposalMessage{
