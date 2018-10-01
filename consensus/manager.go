@@ -189,7 +189,6 @@ func (cm *ConsensusManager) canEnterCommitted() bool {
 }
 
 func (cm *ConsensusManager) enterCommitted() {
-	log.Println("enter committed")
 	cs := cm.currentState
 	// lock proposal block
 	cs.lock()
@@ -284,7 +283,6 @@ func (cm *ConsensusManager) startNewRound(round uint64) {
 		cs = NewConsensusState(newView, cm.validatorSet)
 	} else if head.Height() >= cs.height() {
 		log.Println("catch up latest proposal")
-		log.Println(head.Height())
 		cs = NewConsensusState(newView, cm.validatorSet)
 	} else if head.Height() == cs.height() - 1 {
 		if round == 0 {

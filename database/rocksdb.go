@@ -7,7 +7,7 @@ import (
 	"fmt"
 )
 
-const defaultPath  = "db2"
+const DBPath  = "db2"
 
 type RocksDB struct {
 	db *gorocksdb.DB
@@ -15,7 +15,7 @@ type RocksDB struct {
 	rwMutex sync.RWMutex
 }
 
-var db = NewRocksDB(defaultPath)
+var db = NewRocksDB(DBPath)
 
 func NewRocksDB(path string) *RocksDB {
 	rocksDB := &RocksDB{

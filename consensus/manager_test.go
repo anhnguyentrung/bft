@@ -8,6 +8,8 @@ import (
 	"bft/encoding"
 	"fmt"
 	"log"
+	"os"
+	"bft/database"
 )
 
 type tester struct {
@@ -211,14 +213,11 @@ func TestCommitBlock(t *testing.T) {
 	for _, cm := range managers {
 		cm.enterPrePrepared(proposal)
 	}
-	//for _, cm := range tester.managers {
-	//	cm.sendRoundChange(cm.currentState.round() + 1)
-	//}
-	for _, cm := range tester.managers {
-		t.Log(cm.address())
-		t.Log(cm.currentState.stateType.String())
-		t.Log(cm.currentState.view)
+	lastHeight := database.GetBlockStore().LastHeight()
+	if lastHeight != 2 {
+		t.Fatal("it fails to commit block")
 	}
+	os.RemoveAll(database.DBPath)
 }
 
 func (t *tester) enterPrePrepared() error {
